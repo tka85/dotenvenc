@@ -1,0 +1,30 @@
+{
+    "extends": "@tsconfig/node18/tsconfig.json",
+    "compilerOptions": {
+        "lib": [
+            "es2021"
+        ],
+        "rootDir": "./",
+        "module": "commonjs",
+        "target": "es2021",
+        "outDir": "dist",
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "moduleResolution": "node",
+        "noUnusedLocals": true,
+        "resolveJsonModule": true,
+        "strictNullChecks": true,
+        "noImplicitAny": false,
+        "sourceMap": true
+    },
+    "exclude": [
+        "node_modules",
+        "dist"
+    ],
+    "include": [
+        "src",
+        "test"
+    ],
+    "compileOnSave": true
+}
