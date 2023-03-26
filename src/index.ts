@@ -30,10 +30,10 @@ type encryptParams = {
  */
 export function decrypt(params: decryptParams): { [key: string]: any } {
     if (!params.passwd) {
-        throw new Error('decryption requires a password');
+        throw new Error('Decryption requires a password');
     }
     if (params.encryptedFile && !existsSync(params.encryptedFile)) {
-        throw new Error(`Input file ${params.encryptedFile} not found`);
+        throw new Error(`Encrypted secrets input file "${params.encryptedFile}" not found`);
     }
     const allEncrData = readFileSync(params.encryptedFile ?? DEFAULT_ENCRYPTED_FILE);
     const [ivText, encText] = allEncrData.toString().split(':');
@@ -42,10 +42,9 @@ export function decrypt(params: decryptParams): { [key: string]: any } {
     const decipher = crypto.createDecipheriv(ALGOR, Buffer.concat([Buffer.from(params.passwd), BUFFER_PADDING], MAX_KEY_LENGTH), ivBuff);
     const decrBuff = Buffer.concat([decipher.update(encrBuff), decipher.final()]);
     const parsedEnv = dotenv.parse(decrBuff);
+    Object.assign(process.env, parsedEnv);
     if (params.print) {
         console.log('Added to process.env:', parsedEnv);
-    } else {
-        Object.assign(process.env, parsedEnv);
     }
     return parsedEnv;
 }
@@ -59,13 +58,13 @@ export function decrypt(params: decryptParams): { [key: string]: any } {
  */
 export function encrypt(params: encryptParams): Buffer {
     if (!params.passwd) {
-        throw new Error('encryption requires a password');
+        throw new Error('Encryption requires a password');
     }
     if (params.decryptedFile && !existsSync(params.decryptedFile)) {
-        throw new Error(`Unencrypted secrets input file ${params.decryptedFile} not found`);
+        throw new Error(`Unencrypted secrets input file "${params.decryptedFile}" not found`);
     }
     if (params.encryptedFile && existsSync(params.encryptedFile)) {
-        console.warn(`Encrypted secrets output file ${params.encryptedFile} already exists; overwriting...`);
+        console.warn(`Encrypted secrets output file "${params.encryptedFile}" already exists; overwriting...`);
     }
     const ivBuff = crypto.randomBytes(IV_LENGTH);
     const cipher = crypto.createCipheriv(ALGOR, Buffer.concat([Buffer.from(params.passwd), BUFFER_PADDING], MAX_KEY_LENGTH), ivBuff);

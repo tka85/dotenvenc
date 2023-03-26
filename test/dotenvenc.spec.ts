@@ -53,6 +53,10 @@ describe('encryption', () => {
         encrypt({ passwd: ENC_PASSWD, decryptedFile: CUSTOM_DECRYPTED_FILE, encryptedFile: CUSTOM_ENCRYPTED_FILE });
         expect(decrypt({ passwd: ENC_PASSWD, encryptedFile: CUSTOM_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: 'multi\nline', DELTA: '1234' });
     });
+
+    it(`should throw Error if no password is provided`, () => {
+        expect(() => encrypt({ passwd: '' })).to.throw(/Encryption requires a password/);
+    });
 });
 
 describe('decryption', () => {
@@ -89,6 +93,14 @@ describe('decryption', () => {
         expect(process.env.BETA).to.equal('foo bar');
         expect(process.env.GAMMA).to.equal('multi\nline');
         expect(process.env.DELTA).to.equal('1234');
+    });
+
+    it(`should throw Error if no password is provided`, () => {
+        expect(() => decrypt({ passwd: '' })).to.throw(/Decryption requires a password/);
+    });
+
+    it(`should throw Error if provided encrypted secrets file does not exist`, () => {
+        expect(() => decrypt({ passwd: 'doesnotmatter', encryptedFile: '/non/existent/file' })).to.throw(/Encrypted secrets input file "\/non\/existent\/file" not found/);
     });
 });
 
