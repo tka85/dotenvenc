@@ -18,6 +18,7 @@ function removeFile(filename) {
 
 describe('encryption', () => {
     beforeEach(() => {
+        delete process.env.DOTENVENC_PASS;
         removeFile(DEFAULT_DECRYPTED_FILE);
         removeFile(CUSTOM_DECRYPTED_FILE);
         removeFile(DEFAULT_ENCRYPTED_FILE);
@@ -54,13 +55,30 @@ describe('encryption', () => {
         expect(decrypt({ passwd: ENC_PASSWD, encryptedFile: CUSTOM_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: 'multi\nline', DELTA: '1234' });
     });
 
-    it(`should throw Error if no password is provided`, () => {
-        expect(() => encrypt({ passwd: '' })).to.throw(/Encryption requires a password/);
+    it(`should throw Error if empty password is provided and DOTENVENC_PASS is not set`, () => {
+        expect(() => encrypt({ passwd: '' })).to.throw(/Env variable DOTENVENC_PASS not set and no password provided. Encryption requires a password/);
+    });
+
+    it(`should throw Error if no password is provided and DOTENVENC_PASS is not set`, () => {
+        expect(() => encrypt()).to.throw(/Env variable DOTENVENC_PASS not set and no password provided. Encryption requires a password/);
+    });
+
+    it(`should encrypt default decrypted file with DOTENVENC_PASS if empty password is provided and DOTENVENC_PASS is set`, () => {
+        process.env.DOTENVENC_PASS = ENC_PASSWD;
+        encrypt({ passwd: '' });
+        expect(decrypt({ passwd: process.env.DOTENVENC_PASS, encryptedFile: DEFAULT_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: 'multi\nline', DELTA: '1234' });
+    });
+
+    it(`should encrypt default decrypted file with DOTENVENC_PASS if no password is provided and DOTENVENC_PASS is set`, () => {
+        process.env.DOTENVENC_PASS = ENC_PASSWD;
+        encrypt();
+        expect(decrypt({ passwd: process.env.DOTENVENC_PASS, encryptedFile: DEFAULT_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: 'multi\nline', DELTA: '1234' });
     });
 });
 
 describe('decryption', () => {
     beforeEach(() => {
+        delete process.env.DOTENVENC_PASS;
         removeFile(DEFAULT_DECRYPTED_FILE);
         removeFile(CUSTOM_DECRYPTED_FILE);
         removeFile(DEFAULT_ENCRYPTED_FILE);
@@ -95,8 +113,52 @@ describe('decryption', () => {
         expect(process.env.DELTA).to.equal('1234');
     });
 
-    it(`should throw Error if no password is provided`, () => {
-        expect(() => decrypt({ passwd: '' })).to.throw(/Decryption requires a password/);
+    it(`should decrypt default encrypted file ${DEFAULT_ENCRYPTED_FILE} if empty password is provided but DOTENVENC_PASS is set`, () => {
+        process.env.DOTENVENC_PASS = ENC_PASSWD;
+        const data = decrypt({ passwd: '' });
+        expect(data).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: 'multi\nline', DELTA: '1234' });
+        expect(process.env.ALPHA).to.equal('bar');
+        expect(process.env.BETA).to.equal('foo bar');
+        expect(process.env.GAMMA).to.equal('multi\nline');
+        expect(process.env.DELTA).to.equal('1234');
+    });
+
+    it(`should decrypt default encrypted file ${DEFAULT_ENCRYPTED_FILE} if no password is provided but DOTENVENC_PASS is set`, () => {
+        process.env.DOTENVENC_PASS = ENC_PASSWD;
+        const data = decrypt();
+        expect(data).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: 'multi\nline', DELTA: '1234' });
+        expect(process.env.ALPHA).to.equal('bar');
+        expect(process.env.BETA).to.equal('foo bar');
+        expect(process.env.GAMMA).to.equal('multi\nline');
+        expect(process.env.DELTA).to.equal('1234');
+    });
+
+    it(`should decrypt custom encrypted file ${CUSTOM_ENCRYPTED_FILE} if empty password is provided by DOTENVENC_PASS is set`, () => {
+        process.env.DOTENVENC_PASS = ENC_PASSWD;
+        const data = decrypt({ passwd: '', encryptedFile: CUSTOM_ENCRYPTED_FILE });
+        expect(data).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: 'multi\nline', DELTA: '1234' });
+        expect(process.env.ALPHA).to.equal('bar');
+        expect(process.env.BETA).to.equal('foo bar');
+        expect(process.env.GAMMA).to.equal('multi\nline');
+        expect(process.env.DELTA).to.equal('1234');
+    });
+
+    it(`should decrypt custom encrypted file ${CUSTOM_ENCRYPTED_FILE} if no password is provided by DOTENVENC_PASS is set`, () => {
+        process.env.DOTENVENC_PASS = ENC_PASSWD;
+        const data = decrypt({ encryptedFile: CUSTOM_ENCRYPTED_FILE });
+        expect(data).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: 'multi\nline', DELTA: '1234' });
+        expect(process.env.ALPHA).to.equal('bar');
+        expect(process.env.BETA).to.equal('foo bar');
+        expect(process.env.GAMMA).to.equal('multi\nline');
+        expect(process.env.DELTA).to.equal('1234');
+    });
+
+    it(`should throw Error if empty password is provided and DOTENVENC_PASS is not set`, () => {
+        expect(() => decrypt({ passwd: '' })).to.throw(/Env variable DOTENVENC_PASS not set and no password provided. Decryption requires a password/);
+    });
+
+    it(`should throw Error if no password is provided and DOTENVENC_PASS is not set`, () => {
+        expect(() => decrypt()).to.throw(/Env variable DOTENVENC_PASS not set and no password provided. Decryption requires a password/);
     });
 
     it(`should throw Error if provided encrypted secrets file does not exist`, () => {
