@@ -75,6 +75,9 @@ async function promptPassword() {
                 console.warn('Did not find env variable DOTENVENC_PASS; prompting for decryption password');
                 ({ passwd } = await promptPassword());
             }
+            else {
+                console.log('Env variable DOTENVENC_PASS is set; using it for decryption.');
+            }
             (0, index_1.decrypt)({ passwd, encryptedFile: args.i, print: true });
         }
         else if (args.e) {
@@ -82,6 +85,9 @@ async function promptPassword() {
             if (!process.env.DOTENVENC_PASS) {
                 console.warn('Did not find env variable DOTENVENC_PASS; prompting for encryption password');
                 ({ passwd } = await promptPassword());
+            }
+            else {
+                console.log('Env variable DOTENVENC_PASS is set; using it for encryption.');
             }
             (0, index_1.encrypt)({ passwd, decryptedFile: args.i, encryptedFile: args.o });
             console.log(`Wrote encrypted file: ${args.o ?? index_1.DEFAULT_ENCRYPTED_FILE}`);

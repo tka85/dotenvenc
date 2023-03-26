@@ -1,6 +1,9 @@
+import Debug from 'debug';
 import crypto from 'crypto';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import dotenv from 'dotenv';
+
+const debug = Debug('@tka85/dotenvenc');
 
 export const DEFAULT_ENCRYPTED_FILE = './.env.enc';
 export const DEFAULT_DECRYPTED_FILE = './.env';
@@ -29,11 +32,12 @@ type encryptParams = {
  * @returns   {Object}                      the config object as it's parsed by dotenv
  */
 export function decrypt(params?: decryptParams): { [key: string]: any } {
-    const passwd = (params && params.passwd) || process.env.DOTENVENC_PASS;
+    let passwd = params && params.passwd;
+    if (!passwd && process.env.DOTENVENC_PASS) {
+        debug('No password provided. Decrypting using env variable DOTENVENC_PASS.');
+        passwd = process.env.DOTENVENC_PASS;
+    }
     const encryptedFile = (params && params.encryptedFile) || DEFAULT_ENCRYPTED_FILE;
-    console.log(`>>> process.env.DOTENVENC_PASS`, process.env.DOTENVENC_PASS);
-    console.log(`>>> passwd`, passwd);
-    console.log(`>>> encryptedFile`, encryptedFile);
     if (!passwd) {
         throw new Error('Env variable DOTENVENC_PASS not set and no password provided. Decryption requires a password');
     }
@@ -49,6 +53,7 @@ export function decrypt(params?: decryptParams): { [key: string]: any } {
     const parsedEnv = dotenv.parse(decrBuff);
     Object.assign(process.env, parsedEnv);
     if (params && params.print) {
+        // Not debug()
         console.log('Added to process.env:', parsedEnv);
     }
     return parsedEnv;
@@ -62,7 +67,11 @@ export function decrypt(params?: decryptParams): { [key: string]: any } {
  * @returns   {Buffer}                       returns Buffer with encrypted data [regardless of whether it persisted it on disk or not]
  */
 export function encrypt(params?: encryptParams): Buffer {
-    const passwd = (params && params.passwd) || process.env.DOTENVENC_PASS;
+    let passwd = params && params.passwd;
+    if (!passwd && process.env.DOTENVENC_PASS) {
+        debug('No password provided. Encrypting using env variable DOTENVENC_PASS.');
+        passwd = process.env.DOTENVENC_PASS;
+    }
     const decryptedFile = (params && params.decryptedFile) || DEFAULT_DECRYPTED_FILE;
     const encryptedFile = (params && params.encryptedFile) || DEFAULT_ENCRYPTED_FILE;
     if (!passwd) {
@@ -72,7 +81,7 @@ export function encrypt(params?: encryptParams): Buffer {
         throw new Error(`Unencrypted secrets input file "${decryptedFile}" not found`);
     }
     if (encryptedFile && existsSync(encryptedFile)) {
-        console.warn(`Encrypted secrets output file "${encryptedFile}" already exists; overwriting...`);
+        debug(`Encrypted secrets output file "${encryptedFile}" already exists; overwriting...`);
     }
     const ivBuff = crypto.randomBytes(IV_LENGTH);
     const cipher = crypto.createCipheriv(ALGOR, Buffer.concat([Buffer.from(passwd), BUFFER_PADDING], MAX_KEY_LENGTH), ivBuff);

@@ -1,11 +1,11 @@
 {
   "name": "@tka85/dotenvenc",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "Encrypt and decrypt in-memory at runtime your .env file so you can store sensitive information (passwords etc.) in source control",
   "main": "dist/src/index.js",
   "scripts": {
     "test": "mocha --reporter spec --timeout 100000 --exit",
-    "build": "npx tsc"
+    "build": "tsc"
   },
   "repository": {
     "type": "git",
@@ -31,10 +31,12 @@
   "dependencies": {
     "@tsconfig/node18": "1.0.1",
     "@types/node": "18.15.9",
+    "debug": "4.3.4",
     "dotenv": "16.0.3",
     "minimist": "1.2.8",
     "prompts": "2.4.2",
-    "ts-node": "10.9.1"
+    "ts-node": "10.9.1",
+    "typescript": "5.0.2"
   },
   "devDependencies": {
     "@types/chai": "4.3.4",
