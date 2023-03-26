@@ -2,7 +2,8 @@
 
 **NOTE**: *This is an improved version of the now deprecated [dotenvenc](https://www.npmjs.com/package/dotenvenc).*
 
-Are you using `.env` and it contains secrets like passwords & tokens?<br>
+Are you using `.env` and it contains secrets like passwords & tokens?
+
 And are you using [`dotenv`](https://www.npmjs.com/package/dotenv) to expose those secrets as `process.env` variables to your app?
 
 **Problem**: you are exposing the secrets in plain text in your repository and your production system.
@@ -12,19 +13,19 @@ And are you using [`dotenv`](https://www.npmjs.com/package/dotenv) to expose tho
 ## Benefits
 
 * Secure!
-  ✔ You can safely commit into your codebase the encrypted `.env.enc` without compromosing your secrets<br>
+  ✔ You can safely commit into your codebase the encrypted `.env.enc` without compromosing your secrets
 * Secure!!
-  ✔ Your secrets exist unencrypted only in memory during runtime; never on disk<br>
+  ✔ Your secrets exist unencrypted only in memory during runtime; never on disk
 * Secure!!!
-  ✔ Secrets protected with strong encryption (AES-256)<br>
+  ✔ Secrets protected with strong encryption (AES-256)
 * Handy!
-  ✔ Comes with CLI script `dotenvenc` for easily updating your `.env.enc` from your local (uncommitted) `.env`<br>
+  ✔ Comes with CLI script `dotenvenc` for easily updating your `.env.enc` from your local (uncommitted) `.env`
 * Lean!
-  ✔ Still maintain a single dependency but now on `dotenvenc` instead of `dotenv`<br>
+  ✔ Still maintain a single dependency but now on `dotenvenc` instead of `dotenv`
 * Easy!
-  ✔ Transition from `dotenv` replacing a single line of code<br>
+  ✔ Transition from `dotenv` replacing a single line of code
 * Flexible!
-  ✔ Not limited to `.env` and `.env.enc` i.e. you can set any custom filenames for the encrypted and unencrypted files<br>
+  ✔ Not limited to `.env` and `.env.enc` i.e. you can set any custom filenames for the encrypted and unencrypted files
 * Modern!
   ✔ Fully re-written in Typescript
 
@@ -46,13 +47,33 @@ You can use the handy command-line script `dotenvenc` that comes installed with 
 
 ### Step 1
 
+Save the encryption/decryption password you will be using in the environment variable `DOTENVENC_PASS` in your `.bashrc` (or `.bash_profile`):
+
+```bash
+export DOTENVENC_PASS='mySuperDuperPassword';
+```
+
+and reload it:
+
+```bash
+source ~/.bashrc
+```
+
+This is mandatory for runtime because your app will use this env variable when reading the encrypted `.env.enc` to decrypt it and populate your `process.env` (see following section `Decryption` on how to do this).
+
+But setting this env variable is also helpful for the CLI tool `dotenvenc`. If `DOTENVENC_PASS` is set, the `dotenvenc` script will not prompt you each time to type the password for encryption/decryption.
+
+### Step 2
+
+Note: you will have to repeat this step each time you make changes to a secret in your unencrypted `.env` and need to reflect it into the encrypted `.env.enc`.
+
 If your unencrypted secrets file is `.env` and resides at the root of the project, then simply:
 
 ```bash
 ./node_modules/.bin/dotenvenc -e
 ```
 
-will prompt you for an encryption password and proceed to generate an encrypted secrets file `.env.enc`.
+will prompt you for an encryption password (unless `DOTENVENC_PASS` is set) and proceed to generate an encrypted secrets file `.env.enc`.
 
 And if your unencrypted secrets file is not named the default `.env`, we have you covered:
 
@@ -60,7 +81,7 @@ And if your unencrypted secrets file is not named the default `.env`, we have yo
 ./node_modules/.bin/dotenvenc -e -i /path/to/my/secrets-env-filename
 ```
 
-will prompt you for an encryption password and proceed to generate an encrypted secrets file `.env.enc`.
+will prompt you for an encryption password (unless `DOTENVENC_PASS` is set) and proceed to generate an encrypted secrets file `.env.enc`.
 
 And if you don't want to name the encrypted secrets file `.env.enc`, we also have you covered:
 
@@ -68,29 +89,13 @@ And if you don't want to name the encrypted secrets file `.env.enc`, we also hav
 ./node_modules/.bin/dotenvenc -e -i /path/to/my/secrets-env-filename -o /another/place/to/my/encrypted-secrets-env-filename
 ```
 
-will prompt you for an encryption password and proceed to generate an encrypted secrets file `/another/place/to/my/encrypted-secrets-env-filename`.
+will prompt you for an encryption password (unless `DOTENVENC_PASS` is set) and proceed to generate an encrypted secrets file `/another/place/to/my/encrypted-secrets-env-filename`.
 
 Tip: if you have npm@5.2.0 or better, then you have in your path also [npx](https://www.npmjs.com/package/npx), so the above command is simply:
 
 ```bash
 npx @tka85/dotenvenc -e ...
 ```
-
-### Step 2
-
-Save the encryption password you provided at the prompt before as an environment variable in your `.bashrc` (or `.bash_profile`):
-
-```bash
-export DOTENVENC_PASS='myPassword';
-```
-
-and reload it:
-
-```bash
-. ~/.bashrc
-```
-
-You can choose any name for this variable. You will need it in your app (see following section `Decryption`).
 
 ## Decryption
 
@@ -104,22 +109,37 @@ SECRET_TOKEN='noMoreSecrets'
 You can now populate the `process.env` in your app's code as follows:
 
 ```javascript
-require('dotenvenc').decrypt({ passwd: process.env.DOTENVENC_PASS});
+require('dotenvenc').decrypt({ passwd: 'mySuperDuperPassword'});
 // From here on you have access to the secrets through process.env.DB_PASS and process.env.SECRET_TOKEN
 ```
 
-or using ES6:
+or in ES6:
 
 ```ES6
 import { decrypt } from 'dotenvenc';
-decrypt({ passwd: process.env.DOTENVENC_PASS});
+decrypt({ passwd: 'mySuperDuperPassword'});
 // From here on you have access to the secrets through process.env.DB_PASS and process.env.SECRET_TOKEN
 ```
 
-If you used custom encrypted and decrypted filenames:
+or if you have set the env variable `DOTENVENC_PASS` simply:
 
 ```javascript
-require('dotenvenc').decrypt({ passwd: process.env.DOTENVENC_PASS, encryptedFile: './somewhere/.secrets.custom.enc', decryptedFile: './somewhere/else/.secrets.custom'});
+require('dotenvenc').decrypt();
+// From here on you have access to the secrets through process.env.DB_PASS and process.env.SECRET_TOKEN
+```
+
+or in ES6:
+
+```ES6
+import { decrypt } from 'dotenvenc';
+decrypt();
+// From here on you have access to the secrets through process.env.DB_PASS and process.env.SECRET_TOKEN
+```
+
+If you used a custom encrypted filename:
+
+```javascript
+require('dotenvenc').decrypt({ passwd: 'mySuperDuperPassword', encryptedFile: './somewhere/.secrets.custom.enc'});
 // From here on you have access the passwords through process.env.DB_PASS and process.env.CHASTITIY_KEY
 ```
 
@@ -127,7 +147,22 @@ or in ES6:
 
 ```javascript
 import { decrypt } from 'dotenvenc';
-decrypt({ passwd: process.env.DOTENVENC_PASS, encryptedFile: './somewhere/.secrets.custom.enc', decryptedFile: './somewhere/else/.secrets.custom'});
+decrypt({ passwd: 'mySuperDuperPassword', encryptedFile: './somewhere/.secrets.custom.enc'});
+// From here on you have access the passwords through process.env.DB_PASS and process.env.CHASTITIY_KEY
+```
+
+And again if you have set the env variable `DOTENVENC_PASS` simply:
+
+```javascript
+require('dotenvenc').decrypt({encryptedFile: './somewhere/.secrets.custom.enc'});
+// From here on you have access the passwords through process.env.DB_PASS and process.env.CHASTITIY_KEY
+```
+
+or in ES6:
+
+```javascript
+import { decrypt } from 'dotenvenc';
+decrypt({encryptedFile: './somewhere/.secrets.custom.enc'});
 // From here on you have access the passwords through process.env.DB_PASS and process.env.CHASTITIY_KEY
 ```
 
@@ -158,4 +193,4 @@ you can recreate it to its last functioning state from your `.env.enc`.
 
 * [Keeping passwords in source control](http://ejohn.org/blog/keeping-passwords-in-source-control/)
 * [envenc](https://www.npmjs.com/package/envenc)
-* Based on the now deprecated [https://www.npmjs.com/package/dotenvenc]()
+* Based on the now deprecated (dotenvenc)[https://www.npmjs.com/package/dotenvenc]()
