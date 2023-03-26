@@ -75,7 +75,7 @@ async function promptPassword(): Promise<{ passwd: string }> {
         } else if (args.e) {
             const { passwd } = await promptPassword();
             encrypt({ passwd, decryptedFile: args.i, encryptedFile: args.o });
-            console.log(`Wrote encrypted file: ${args.o ?? DEFAULT_DECRYPTED_FILE}`)
+            console.log(`Wrote encrypted file: ${args.o ?? DEFAULT_ENCRYPTED_FILE}`)
         } else {
             printHelp('Missing either -e to encrypt or -d to decrypt');
         }
