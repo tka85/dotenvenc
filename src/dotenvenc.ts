@@ -57,32 +57,40 @@ function printHelp(errorMsg?: string) {
     process.exit(0);
 }
 
-async function promptPassword(): Promise<{ passwd: string }> {
-    return await prompts({
+async function promptPassword(askConfirmation: boolean = false): Promise<{ passwd: string }> {
+    const { passwd } = await prompts({
         type: 'password',
         name: 'passwd',
         message: 'Type password:'
     });
+    if (askConfirmation) {
+        const { confirmPasswd } = await prompts({
+            type: 'password',
+            name: 'confirmPasswd',
+            message: 'Confirm password:'
+        });
+        if (passwd !== confirmPasswd) {
+            throw new Error('Password did not match. Exiting.');
+        }
+    }
+    return passwd;
 }
 
 (async () => {
     if (args.h) {
         printHelp();
     } else {
+        let passwd;
         if (args.d) {
-            let passwd;
             if (!process.env.DOTENVENC_PASS) {
-                console.warn('Did not find env variable DOTENVENC_PASS; prompting for decryption password');
-                ({ passwd } = await promptPassword());
-            } else {
-                console.log('Env variable DOTENVENC_PASS is set; using it for decryption.');
+                console.warn('No env variable DOTENVENC_PASS found; prompting for decryption password');
+                passwd = await promptPassword();
             }
             decrypt({ passwd, encryptedFile: args.i, print: true });
         } else if (args.e) {
-            let passwd;
             if (!process.env.DOTENVENC_PASS) {
-                console.warn('Did not find env variable DOTENVENC_PASS; prompting for encryption password');
-                ({ passwd } = await promptPassword());
+                console.warn('No env variable DOTENVENC_PASS found; prompting for encryption password');
+                passwd = await promptPassword(true);
             } else {
                 console.log('Env variable DOTENVENC_PASS is set; using it for encryption.');
             }

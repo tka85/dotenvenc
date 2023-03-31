@@ -43,9 +43,16 @@ function decrypt(params) {
     const decrBuff = Buffer.concat([decipher.update(encrBuff), decipher.final()]);
     const parsedEnv = dotenv_1.default.parse(decrBuff);
     Object.assign(process.env, parsedEnv);
+    // Wrong passwd => empty list of env vars
+    if (JSON.stringify(parsedEnv) === '{}') {
+        throw new Error('Found no env variables. Either empty input file or wrong password.');
+    }
     if (params && params.print) {
-        // Not debug()
-        console.log('Added to process.env:', parsedEnv);
+        for (const prop in parsedEnv) {
+            if (parsedEnv.hasOwnProperty(prop)) {
+                console.log(`${prop}="${parsedEnv[prop].replace(/"/g, '\\"')}";`);
+            }
+        }
     }
     return parsedEnv;
 }

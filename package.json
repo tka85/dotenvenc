@@ -1,6 +1,6 @@
 {
   "name": "@tka85/dotenvenc",
-  "version": "2.1.0",
+  "version": "3.0.0",
   "description": "Encrypt and decrypt in-memory at runtime your .env file so you can store sensitive information (passwords etc.) in source control",
   "main": "dist/src/index.js",
   "scripts": {
@@ -41,9 +41,11 @@
   "devDependencies": {
     "@types/chai": "4.3.4",
     "@types/mocha": "10.0.1",
+    "@types/sinon": "10.0.13",
     "chai": "4.3.7",
     "eslint": "8.36.0",
     "eslint-plugin-import": "2.27.5",
-    "mocha": "10.2.0"
+    "mocha": "10.2.0",
+    "sinon": "15.0.3"
   }
 }

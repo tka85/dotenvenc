@@ -73,7 +73,7 @@ If your unencrypted secrets file is `.env` and resides at the root of the projec
 ./node_modules/.bin/dotenvenc -e
 ```
 
-will prompt you for an encryption password (unless `DOTENVENC_PASS` is set) and proceed to generate an encrypted secrets file `.env.enc`.
+will prompt you (x2) for an encryption password (unless `DOTENVENC_PASS` is set) and proceed to generate an encrypted secrets file `.env.enc`.
 
 And if your unencrypted secrets file is not named the default `.env`, we have you covered:
 
@@ -81,7 +81,7 @@ And if your unencrypted secrets file is not named the default `.env`, we have yo
 ./node_modules/.bin/dotenvenc -e -i /path/to/my/secrets-env-filename
 ```
 
-will prompt you for an encryption password (unless `DOTENVENC_PASS` is set) and proceed to generate an encrypted secrets file `.env.enc`.
+will prompt you (x2) for an encryption password (unless `DOTENVENC_PASS` is set) and proceed to generate an encrypted secrets file `.env.enc`.
 
 And if you don't want to name the encrypted secrets file `.env.enc`, we also have you covered:
 
@@ -89,13 +89,7 @@ And if you don't want to name the encrypted secrets file `.env.enc`, we also hav
 ./node_modules/.bin/dotenvenc -e -i /path/to/my/secrets-env-filename -o /another/place/to/my/encrypted-secrets-env-filename
 ```
 
-will prompt you for an encryption password (unless `DOTENVENC_PASS` is set) and proceed to generate an encrypted secrets file `/another/place/to/my/encrypted-secrets-env-filename`.
-
-Tip: if you have npm@5.2.0 or better, then you have in your path also [npx](https://www.npmjs.com/package/npx), so the above command is simply:
-
-```bash
-npx @tka85/dotenvenc -e ...
-```
+will prompt you (x2) for an encryption password (unless `DOTENVENC_PASS` is set) and proceed to generate an encrypted secrets file `/another/place/to/my/encrypted-secrets-env-filename`.
 
 ## Decryption
 
@@ -184,7 +178,7 @@ or if you used custom name instead of the default `.env.enc`:
 ./node_modules/.bin/dotenvenc -d -i ./somewhere/.secrets.custom.enc
 ```
 
-In both cases you will be prompted to provide the password that was used to create the encrypted file and, assuming it's correct, you will have the contents printed on the console.
+In both cases you will be prompted to provide the password that was used to create the encrypted file and, assuming it's correct, you will have the contents printed on the screen.
 
 This can be useful if you corrupt or lose your `.env` (remember that `.env` is an unversioned file). With the `dotenvenc` script
 you can recreate it to its last functioning state from your `.env.enc`.
