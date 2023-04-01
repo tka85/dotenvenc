@@ -178,10 +178,36 @@ or if you used custom name instead of the default `.env.enc`:
 ./node_modules/.bin/dotenvenc -d -i ./somewhere/.secrets.custom.enc
 ```
 
-In both cases you will be prompted to provide the password that was used to create the encrypted file and, assuming it's correct, you will have the contents printed on the screen.
+In both cases you will be prompted to provide the password that was used to create the encrypted file (if `DOTENVENC_PASS` is not set) and, assuming the password is correct, you will have the contents printed on the screen in the format:
 
-This can be useful if you corrupt or lose your `.env` (remember that `.env` is an unversioned file). With the `dotenvenc` script
-you can recreate it to its last functioning state from your `.env.enc`.
+```
+export VAR1=VALUE1;
+export VAR2=VALUE2;
+...
+```
+
+This is useful because you can use the shell's `eval` in a script and populate your environment dynamically without ever storing the sensitive information on disk.
+
+```
+eval `./node_modules/.bin/dotenvenc -d`
+# all commands following in the script will now have access to the env variables
+```
+
+Additionally this can be useful for recreating your `.env` (remember that `.env` is an unversioned file) in case it is lost or corrupted.
+
+## Comments
+
+Anything following a `#` sign in the `.env` file,  is stripped. That means you can have full line comments:
+
+```
+# the whole line is a comments because it start with a "#"
+```
+
+or inline comments:
+
+```
+VAR="a value" # text before the "#" is kept; text following the "#" is stripped
+```
 
 ## Inspired by
 
