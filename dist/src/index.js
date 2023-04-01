@@ -50,7 +50,7 @@ function decrypt(params) {
     if (params && params.print) {
         for (const prop in parsedEnv) {
             if (parsedEnv.hasOwnProperty(prop)) {
-                console.log(`${prop}="${parsedEnv[prop].replace(/"/g, '\\"')}";`);
+                console.log(`export ${prop}="${parsedEnv[prop].replace(/"/g, '\\"')}";`);
             }
         }
     }
