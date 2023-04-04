@@ -233,12 +233,11 @@ describe('decryption', () => {
         expect(process.env.GAMMA).to.equal('1234');
         expect(process.env.DELTA).to.equal('With \"double quotes\" inside');
         expect(process.env.EPSILON).to.equal('bla');
-        expect(logSpy.callCount).to.equal(6);
-        expect(logSpy.getCall(0).args[0]).to.equal('# Decrypting using env variable DOTENVENC_PASS');
-        expect(logSpy.getCall(1).args[0]).to.equal('export ALPHA="bar";');
-        expect(logSpy.getCall(2).args[0]).to.equal('export BETA="foo bar";');
-        expect(logSpy.getCall(3).args[0]).to.equal('export GAMMA="1234";');
-        expect(logSpy.getCall(4).args[0]).to.equal('export DELTA="With \\"double quotes\\" inside";');
-        expect(logSpy.getCall(5).args[0]).to.equal('export EPSILON="bla";');
+        expect(logSpy.callCount).to.equal(5);
+        expect(logSpy.getCall(0).args[0]).to.equal('export ALPHA="bar";');
+        expect(logSpy.getCall(1).args[0]).to.equal('export BETA="foo bar";');
+        expect(logSpy.getCall(2).args[0]).to.equal('export GAMMA="1234";');
+        expect(logSpy.getCall(3).args[0]).to.equal('export DELTA="With \\"double quotes\\" inside";');
+        expect(logSpy.getCall(4).args[0]).to.equal('export EPSILON="bla";');
     });
 });

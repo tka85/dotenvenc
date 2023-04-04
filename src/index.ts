@@ -34,12 +34,13 @@ type encryptParams = {
  */
 export async function decrypt(params?: decryptParams): Promise<{ [key: string]: any }> {
     let passwd = params && params.passwd;
+    // if passed params.print=true we don't want to print anything else besides the `export VAR=VAL` lines
+    let logOutput = '';
     if (!passwd) {
         if (!process.env.DOTENVENC_PASS) {
-            console.log('# No env variable DOTENVENC_PASS found; prompting for decryption password');
             passwd = await promptPassword(false);
         } else {
-            console.log('# Decrypting using env variable DOTENVENC_PASS');
+            logOutput += '# Decrypted using env variable DOTENVENC_PASS';
             passwd = process.env.DOTENVENC_PASS;
         }
     }
@@ -65,6 +66,8 @@ export async function decrypt(params?: decryptParams): Promise<{ [key: string]: 
                 console.log(`export ${prop}="${parsedEnv[prop].replace(/"/g, '\\"')}";`);
             }
         }
+    } else if (logOutput) {
+        console.log(logOutput);
     }
     return parsedEnv;
 }

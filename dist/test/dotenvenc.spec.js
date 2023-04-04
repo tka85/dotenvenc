@@ -234,13 +234,12 @@ describe('decryption', () => {
         (0, chai_1.expect)(process.env.GAMMA).to.equal('1234');
         (0, chai_1.expect)(process.env.DELTA).to.equal('With \"double quotes\" inside');
         (0, chai_1.expect)(process.env.EPSILON).to.equal('bla');
-        (0, chai_1.expect)(logSpy.callCount).to.equal(6);
-        (0, chai_1.expect)(logSpy.getCall(0).args[0]).to.equal('# Decrypting using env variable DOTENVENC_PASS');
-        (0, chai_1.expect)(logSpy.getCall(1).args[0]).to.equal('export ALPHA="bar";');
-        (0, chai_1.expect)(logSpy.getCall(2).args[0]).to.equal('export BETA="foo bar";');
-        (0, chai_1.expect)(logSpy.getCall(3).args[0]).to.equal('export GAMMA="1234";');
-        (0, chai_1.expect)(logSpy.getCall(4).args[0]).to.equal('export DELTA="With \\"double quotes\\" inside";');
-        (0, chai_1.expect)(logSpy.getCall(5).args[0]).to.equal('export EPSILON="bla";');
+        (0, chai_1.expect)(logSpy.callCount).to.equal(5);
+        (0, chai_1.expect)(logSpy.getCall(0).args[0]).to.equal('export ALPHA="bar";');
+        (0, chai_1.expect)(logSpy.getCall(1).args[0]).to.equal('export BETA="foo bar";');
+        (0, chai_1.expect)(logSpy.getCall(2).args[0]).to.equal('export GAMMA="1234";');
+        (0, chai_1.expect)(logSpy.getCall(3).args[0]).to.equal('export DELTA="With \\"double quotes\\" inside";');
+        (0, chai_1.expect)(logSpy.getCall(4).args[0]).to.equal('export EPSILON="bla";');
     });
 });
 //# sourceMappingURL=dotenvenc.spec.js.map
