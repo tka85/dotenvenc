@@ -1,10 +1,6 @@
 #!/usr/bin/env node
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-const prompts_1 = __importDefault(require("prompts"));
 const index_1 = require("./index");
 const args = require('minimist')(process.argv.slice(2), {
     boolean: ['e', 'd', 'h'],
@@ -57,24 +53,6 @@ function printHelp(errorMsg) {
 `);
     process.exit(0);
 }
-async function promptPassword(askConfirmation = false) {
-    const { passwd } = await (0, prompts_1.default)({
-        type: 'password',
-        name: 'passwd',
-        message: 'Type password:'
-    });
-    if (askConfirmation) {
-        const { confirmPasswd } = await (0, prompts_1.default)({
-            type: 'password',
-            name: 'confirmPasswd',
-            message: 'Confirm password:'
-        });
-        if (passwd !== confirmPasswd) {
-            throw new Error('Password did not match. Exiting.');
-        }
-    }
-    return passwd;
-}
 (async () => {
     if (args.h) {
         printHelp();
@@ -82,22 +60,11 @@ async function promptPassword(askConfirmation = false) {
     else {
         let passwd;
         if (args.d) {
-            if (!process.env.DOTENVENC_PASS) {
-                console.warn('No env variable DOTENVENC_PASS found; prompting for decryption password');
-                passwd = await promptPassword();
-            }
-            (0, index_1.decrypt)({ passwd, encryptedFile: args.i, print: true });
+            await (0, index_1.decrypt)({ passwd, encryptedFile: args.i, print: true });
         }
         else if (args.e) {
-            if (!process.env.DOTENVENC_PASS) {
-                console.warn('No env variable DOTENVENC_PASS found; prompting for encryption password');
-                passwd = await promptPassword(true);
-            }
-            else {
-                console.log('Env variable DOTENVENC_PASS is set; using it for encryption.');
-            }
-            (0, index_1.encrypt)({ passwd, decryptedFile: args.i, encryptedFile: args.o });
-            console.log(`Wrote encrypted file: ${args.o ?? index_1.DEFAULT_ENCRYPTED_FILE}`);
+            await (0, index_1.encrypt)({ passwd, decryptedFile: args.i, encryptedFile: args.o });
+            console.log(`Saved encrypted file: ${args.o ?? index_1.DEFAULT_ENCRYPTED_FILE}`);
         }
         else {
             printHelp('Missing either -e to encrypt or -d to decrypt');

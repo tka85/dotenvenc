@@ -45,7 +45,9 @@ You have a `.env` (or custom-named unencrypted secrets file) and you will genera
 
 You can use the handy command-line script `dotenvenc` that comes installed with the package. Just run it without arguments to see the help page.
 
-### Step 1
+### Step 1 (optional)
+
+#### Convenient option
 
 Save the encryption/decryption password you will be using in the environment variable `DOTENVENC_PASS` in your `.bashrc` (or `.bash_profile`):
 
@@ -59,11 +61,15 @@ and reload it:
 source ~/.bashrc
 ```
 
-This is mandatory for runtime because your app will use this env variable when reading the encrypted `.env.enc` to decrypt it and populate your `process.env` (see following section `Decryption` on how to do this).
+Upon runtime your app will use this env variable when reading the encrypted `.env.enc` to decrypt it and populate your `process.env` (see following section `Decryption` on how to do this).
 
 But setting this env variable is also helpful for the CLI tool `dotenvenc`. If `DOTENVENC_PASS` is set, the `dotenvenc` script will not prompt you each time to type the password for encryption/decryption.
 
-### Step 2
+#### Secure option
+
+For maximum security, do not save the `DOTENVENC_PASS` not even as an environment variable in your `.bashrc`. If it is not set, the application will ask for it upon startup before it can proceed to decrypt `.env.enc` and populate your `process.enc`.
+
+### Step 2: encrypt .env
 
 Note: you will have to repeat this step each time you make changes to a secret in your unencrypted `.env` and need to reflect it into the encrypted `.env.enc`.
 
@@ -100,26 +106,16 @@ DB_PASS='superDuperPassword'
 SECRET_TOKEN='noMoreSecrets'
 ```
 
+For all possible decryption scenarios that follow, the principle is:
+
+* If you have set env var `DOTENVENC_PASS`, no additional step is needed
+* If you have not set env var `DOTENVENC_PASS`, you will be prompted to supply the decryption password before proceeding
+  
 You can now populate the `process.env` in your app's code as follows:
 
 ```javascript
-require('dotenvenc').decrypt({ passwd: 'mySuperDuperPassword'});
-// From here on you have access to the secrets through process.env.DB_PASS and process.env.SECRET_TOKEN
-```
-
-or in ES6:
-
-```ES6
-import { decrypt } from 'dotenvenc';
-decrypt({ passwd: 'mySuperDuperPassword'});
-// From here on you have access to the secrets through process.env.DB_PASS and process.env.SECRET_TOKEN
-```
-
-or if you have set the env variable `DOTENVENC_PASS` simply:
-
-```javascript
 require('dotenvenc').decrypt();
-// From here on you have access to the secrets through process.env.DB_PASS and process.env.SECRET_TOKEN
+// From here on your app will have access to the secrets through `process.env.DB_PASS` and `process.env.SECRET_TOKEN`
 ```
 
 or in ES6:
@@ -127,37 +123,22 @@ or in ES6:
 ```ES6
 import { decrypt } from 'dotenvenc';
 decrypt();
-// From here on you have access to the secrets through process.env.DB_PASS and process.env.SECRET_TOKEN
+// From here on your app will have access to the secrets through `process.env.DB_PASS` and `process.env.SECRET_TOKEN`
 ```
 
 If you used a custom encrypted filename:
 
 ```javascript
-require('dotenvenc').decrypt({ passwd: 'mySuperDuperPassword', encryptedFile: './somewhere/.secrets.custom.enc'});
-// From here on you have access the passwords through process.env.DB_PASS and process.env.CHASTITIY_KEY
+require('dotenvenc').decrypt({ encryptedFile: './somewhere/.secrets.custom.enc'});
+// From here on your app will have access to the secrets through `process.env.DB_PASS` and `process.env.SECRET_TOKEN`
 ```
 
 or in ES6:
 
 ```javascript
 import { decrypt } from 'dotenvenc';
-decrypt({ passwd: 'mySuperDuperPassword', encryptedFile: './somewhere/.secrets.custom.enc'});
-// From here on you have access the passwords through process.env.DB_PASS and process.env.CHASTITIY_KEY
-```
-
-And again if you have set the env variable `DOTENVENC_PASS` simply:
-
-```javascript
-require('dotenvenc').decrypt({encryptedFile: './somewhere/.secrets.custom.enc'});
-// From here on you have access the passwords through process.env.DB_PASS and process.env.CHASTITIY_KEY
-```
-
-or in ES6:
-
-```javascript
-import { decrypt } from 'dotenvenc';
-decrypt({encryptedFile: './somewhere/.secrets.custom.enc'});
-// From here on you have access the passwords through process.env.DB_PASS and process.env.CHASTITIY_KEY
+decrypt({ encryptedFile: './somewhere/.secrets.custom.enc'});
+// From here on your app will have access to the secrets through `process.env.DB_PASS` and `process.env.SECRET_TOKEN`
 ```
 
 ## Bonus

@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-
-import prompts from 'prompts';
 import { encrypt, decrypt, DEFAULT_DECRYPTED_FILE, DEFAULT_ENCRYPTED_FILE } from './index';
 
 const args = require('minimist')(process.argv.slice(2), {
@@ -57,45 +55,16 @@ function printHelp(errorMsg?: string) {
     process.exit(0);
 }
 
-async function promptPassword(askConfirmation: boolean = false): Promise<{ passwd: string }> {
-    const { passwd } = await prompts({
-        type: 'password',
-        name: 'passwd',
-        message: 'Type password:'
-    });
-    if (askConfirmation) {
-        const { confirmPasswd } = await prompts({
-            type: 'password',
-            name: 'confirmPasswd',
-            message: 'Confirm password:'
-        });
-        if (passwd !== confirmPasswd) {
-            throw new Error('Password did not match. Exiting.');
-        }
-    }
-    return passwd;
-}
-
 (async () => {
     if (args.h) {
         printHelp();
     } else {
         let passwd;
         if (args.d) {
-            if (!process.env.DOTENVENC_PASS) {
-                console.warn('No env variable DOTENVENC_PASS found; prompting for decryption password');
-                passwd = await promptPassword();
-            }
-            decrypt({ passwd, encryptedFile: args.i, print: true });
+            await decrypt({ passwd, encryptedFile: args.i, print: true });
         } else if (args.e) {
-            if (!process.env.DOTENVENC_PASS) {
-                console.warn('No env variable DOTENVENC_PASS found; prompting for encryption password');
-                passwd = await promptPassword(true);
-            } else {
-                console.log('Env variable DOTENVENC_PASS is set; using it for encryption.');
-            }
-            encrypt({ passwd, decryptedFile: args.i, encryptedFile: args.o });
-            console.log(`Wrote encrypted file: ${args.o ?? DEFAULT_ENCRYPTED_FILE}`)
+            await encrypt({ passwd, decryptedFile: args.i, encryptedFile: args.o });
+            console.log(`Saved encrypted file: ${args.o ?? DEFAULT_ENCRYPTED_FILE}`)
         } else {
             printHelp('Missing either -e to encrypt or -d to decrypt');
         }

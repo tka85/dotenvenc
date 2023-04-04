@@ -3,12 +3,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.encrypt = exports.decrypt = exports.DEFAULT_DECRYPTED_FILE = exports.DEFAULT_ENCRYPTED_FILE = void 0;
-const debug_1 = __importDefault(require("debug"));
+exports.promptPassword = exports.encrypt = exports.decrypt = exports.DEFAULT_DECRYPTED_FILE = exports.DEFAULT_ENCRYPTED_FILE = void 0;
+// import Debug from 'debug';
 const crypto_1 = __importDefault(require("crypto"));
 const fs_1 = require("fs");
 const dotenv_1 = __importDefault(require("dotenv"));
-const debug = (0, debug_1.default)('@tka85/dotenvenc');
+const prompts_1 = __importDefault(require("prompts"));
+// const debug = Debug('dotenvenc');
 exports.DEFAULT_ENCRYPTED_FILE = './.env.enc';
 exports.DEFAULT_DECRYPTED_FILE = './.env';
 const ALGOR = 'aes-256-ctr';
@@ -16,22 +17,25 @@ const IV_LENGTH = 16;
 const MAX_KEY_LENGTH = 32;
 const BUFFER_PADDING = Buffer.alloc(MAX_KEY_LENGTH); // key used in createCipheriv()/createDecipheriv() buffer needs to be 32 bytes
 /**
- * Read encrypted env file and either print it on console or create process.env variables from it
+ * Read encrypted env file and either print it on console or populate process.env from it
  * @param     {String}    passwd            the password for decrypting the encrypted .env.enc (memory only;no disk)
  * @param     {String}    [encryptedFile]   the full path of encrypted file or DEFAULT_ENCRYPTED_PATHNAME if ommitted
  * @param     {Boolean}   [print]           whether to print result on console
  * @returns   {Object}                      the config object as it's parsed by dotenv
  */
-function decrypt(params) {
+async function decrypt(params) {
     let passwd = params && params.passwd;
-    if (!passwd && process.env.DOTENVENC_PASS) {
-        debug('No password provided. Decrypting using env variable DOTENVENC_PASS.');
-        passwd = process.env.DOTENVENC_PASS;
+    if (!passwd) {
+        if (!process.env.DOTENVENC_PASS) {
+            console.log('# No env variable DOTENVENC_PASS found; prompting for decryption password');
+            passwd = await promptPassword(false);
+        }
+        else {
+            console.log('# Decrypting using env variable DOTENVENC_PASS');
+            passwd = process.env.DOTENVENC_PASS;
+        }
     }
     const encryptedFile = (params && params.encryptedFile) || exports.DEFAULT_ENCRYPTED_FILE;
-    if (!passwd) {
-        throw new Error('Env variable DOTENVENC_PASS not set and no password provided. Decryption requires a password');
-    }
     if (params && params.encryptedFile && !(0, fs_1.existsSync)(params.encryptedFile)) {
         throw new Error(`Encrypted secrets input file "${params.encryptedFile}" not found`);
     }
@@ -45,7 +49,7 @@ function decrypt(params) {
     Object.assign(process.env, parsedEnv);
     // Wrong passwd => empty list of env vars
     if (JSON.stringify(parsedEnv) === '{}') {
-        throw new Error('Found no env variables. Either empty input file or wrong password.');
+        throw new Error('Restored no env variables. Either empty input file or wrong password.');
     }
     if (params && params.print) {
         for (const prop in parsedEnv) {
@@ -64,22 +68,25 @@ exports.decrypt = decrypt;
  * @param     {String}    [encryptedFile]    the full path of encrypted file or DEFAULT_ENCRYPTED_PATHNAME if ommitted
  * @returns   {Buffer}                       returns Buffer with encrypted data [regardless of whether it persisted it on disk or not]
  */
-function encrypt(params) {
+async function encrypt(params) {
     let passwd = params && params.passwd;
-    if (!passwd && process.env.DOTENVENC_PASS) {
-        debug('No password provided. Encrypting using env variable DOTENVENC_PASS.');
-        passwd = process.env.DOTENVENC_PASS;
+    if (!passwd) {
+        if (!process.env.DOTENVENC_PASS) {
+            console.log('# No env variable DOTENVENC_PASS found; prompting for encryption password');
+            passwd = await promptPassword(true);
+        }
+        else {
+            console.log('# Encrypting using env variable DOTENVENC_PASS');
+            passwd = process.env.DOTENVENC_PASS;
+        }
     }
     const decryptedFile = (params && params.decryptedFile) || exports.DEFAULT_DECRYPTED_FILE;
     const encryptedFile = (params && params.encryptedFile) || exports.DEFAULT_ENCRYPTED_FILE;
-    if (!passwd) {
-        throw new Error('Env variable DOTENVENC_PASS not set and no password provided. Encryption requires a password');
-    }
     if (!(0, fs_1.existsSync)(decryptedFile)) {
-        throw new Error(`Unencrypted secrets input file "${decryptedFile}" not found`);
+        throw new Error(`Dencrypted secrets input file "${decryptedFile}" not found`);
     }
-    if (encryptedFile && (0, fs_1.existsSync)(encryptedFile)) {
-        debug(`Encrypted secrets output file "${encryptedFile}" already exists; overwriting...`);
+    if ((0, fs_1.existsSync)(encryptedFile)) {
+        console.log(`# Encrypted secrets output file "${encryptedFile}" already exists; overwriting...`);
     }
     const ivBuff = crypto_1.default.randomBytes(IV_LENGTH);
     const cipher = crypto_1.default.createCipheriv(ALGOR, Buffer.concat([Buffer.from(passwd), BUFFER_PADDING], MAX_KEY_LENGTH), ivBuff);
@@ -88,4 +95,23 @@ function encrypt(params) {
     return encrBuff;
 }
 exports.encrypt = encrypt;
+async function promptPassword(askConfirmation) {
+    const { passwd } = await (0, prompts_1.default)({
+        type: 'password',
+        name: 'passwd',
+        message: 'Type password:'
+    });
+    if (askConfirmation) {
+        const { confirmPasswd } = await (0, prompts_1.default)({
+            type: 'password',
+            name: 'confirmPasswd',
+            message: 'Confirm password:'
+        });
+        if (passwd !== confirmPasswd) {
+            throw new Error('Password did not match. Exiting.');
+        }
+    }
+    return passwd;
+}
+exports.promptPassword = promptPassword;
 //# sourceMappingURL=index.js.map
