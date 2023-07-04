@@ -225,7 +225,7 @@ describe('decryption', () => {
         await (0, chai_1.expect)(dotenvenc.decrypt({ passwd: 'doesnotmatter', encryptedFile: '/non/existent/file' })).to.be.rejectedWith(/Encrypted secrets input file "\/non\/existent\/file" not found/);
     });
     it(`should console.log() decrypted env vars if passed "print: true"`, async () => {
-        const logSpy = sinon.spy(console, 'log');
+        const consoleLogSpy = sinon.spy(console, 'log');
         process.env.DOTENVENC_PASS = ENC_PASSWD;
         const data = await dotenvenc.decrypt({ print: true });
         (0, chai_1.expect)(data).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With \"double quotes\" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla' });
@@ -235,13 +235,25 @@ describe('decryption', () => {
         (0, chai_1.expect)(process.env.DELTA).to.equal('With \"double quotes\" inside');
         (0, chai_1.expect)(process.env.DELTA_2).to.equal('With \'single quotes\' inside');
         (0, chai_1.expect)(process.env.EPSILON).to.equal('bla');
-        (0, chai_1.expect)(logSpy.callCount).to.equal(6);
-        (0, chai_1.expect)(logSpy.getCall(0).args[0]).to.equal('export ALPHA="bar";');
-        (0, chai_1.expect)(logSpy.getCall(1).args[0]).to.equal('export BETA="foo bar";');
-        (0, chai_1.expect)(logSpy.getCall(2).args[0]).to.equal('export GAMMA="1234";');
-        (0, chai_1.expect)(logSpy.getCall(3).args[0]).to.equal('export DELTA="With \\"double quotes\\" inside";');
-        (0, chai_1.expect)(logSpy.getCall(4).args[0]).to.equal('export DELTA_2="With \'single quotes\' inside";');
-        (0, chai_1.expect)(logSpy.getCall(5).args[0]).to.equal('export EPSILON="bla";');
+        (0, chai_1.expect)(consoleLogSpy.callCount).to.equal(6);
+        (0, chai_1.expect)(consoleLogSpy.getCall(0).args[0]).to.equal('ALPHA=bar');
+        (0, chai_1.expect)(consoleLogSpy.getCall(1).args[0]).to.equal('BETA=foo bar');
+        (0, chai_1.expect)(consoleLogSpy.getCall(2).args[0]).to.equal('GAMMA=1234');
+        (0, chai_1.expect)(consoleLogSpy.getCall(3).args[0]).to.equal('DELTA=With \\"double quotes\\" inside');
+        (0, chai_1.expect)(consoleLogSpy.getCall(4).args[0]).to.equal('DELTA_2=With \'single quotes\' inside');
+        (0, chai_1.expect)(consoleLogSpy.getCall(5).args[0]).to.equal('EPSILON=bla');
+    });
+    it('should print a dump of "export" statements', async () => {
+        const consoleLogSpy = sinon.spy(console, 'log');
+        process.env.DOTENVENC_PASS = ENC_PASSWD;
+        await dotenvenc.printExport();
+        (0, chai_1.expect)(consoleLogSpy.callCount).to.equal(6);
+        (0, chai_1.expect)(consoleLogSpy.getCall(0).args[0]).to.equal('export ALPHA="bar";');
+        (0, chai_1.expect)(consoleLogSpy.getCall(1).args[0]).to.equal('export BETA="foo bar";');
+        (0, chai_1.expect)(consoleLogSpy.getCall(2).args[0]).to.equal('export GAMMA="1234";');
+        (0, chai_1.expect)(consoleLogSpy.getCall(3).args[0]).to.equal('export DELTA="With \\"double quotes\\" inside";');
+        (0, chai_1.expect)(consoleLogSpy.getCall(4).args[0]).to.equal('export DELTA_2="With \'single quotes\' inside";');
+        (0, chai_1.expect)(consoleLogSpy.getCall(5).args[0]).to.equal('export EPSILON="bla";');
     });
 });
 //# sourceMappingURL=dotenvenc.spec.js.map

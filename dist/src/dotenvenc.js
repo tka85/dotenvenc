@@ -10,6 +10,7 @@ const args = require('minimist')(process.argv.slice(2), {
         d: 'decrypt',
         i: 'input',
         o: 'output',
+        x: 'export',
         h: 'help',
     }
 });
@@ -27,12 +28,16 @@ function printHelp(errorMsg) {
 
     - To decrypt i.e. to print the contents of an encrypted env file (will be prompted for password):
     $ ./node_modules/.bin/dotenvenc -d [-i encryptedFile]
+
+    - To dump the contents of an encrypted env file as "export" statements for use in a bash shell (will be prompted for password):
+    $ ./node_modules/.bin/dotenvenc -x [-i encryptedFile]
     
 * Arguments:
     -e, --encrypt    to encrypt an unencrypted .env file and write encrypted file on disk
     -d, --decrypt    to decrypt an encrypted .env.enc file and either print on console or return the contents
     -i, --input      the input file (with absolute path); if decrypting this is the encrypted file (default is "${index_1.DEFAULT_ENCRYPTED_FILE}"); if encrypting this is the decrypted file (default is "${index_1.DEFAULT_DECRYPTED_FILE}")
     -o, --output     [for encrypting only] the output file (with absolute path); this is the resulting encrypted file (default is "${index_1.DEFAULT_ENCRYPTED_FILE}")
+    -x, --export     to dump as "export" statements the contents of an encrypted .env.enc file
     -h, --help       print this help
 
 * Encryption examples:
@@ -50,6 +55,10 @@ function printHelp(errorMsg) {
         $ ./node_modules/.bin/dotenvenc -d
     - To decrypt custom encrypted "/somewhere/else/.env.enc.custom" into default unencrypted file "${index_1.DEFAULT_DECRYPTED_FILE}"
         $ ./node_modules/.bin/dotenvenc -d -i /somewhere/else/.env.enc.custom
+
+* Export example:
+    - To dump default encrypted "${index_1.DEFAULT_ENCRYPTED_FILE}" as "export" statements:
+        $ ./node_modules/.bin/dotenvenc - 
 `);
     process.exit(0);
 }
@@ -65,6 +74,9 @@ function printHelp(errorMsg) {
         else if (args.e) {
             await (0, index_1.encrypt)({ passwd, decryptedFile: args.i, encryptedFile: args.o });
             console.log(`Saved encrypted file: ${args.o ?? index_1.DEFAULT_ENCRYPTED_FILE}`);
+        }
+        else if (args.x) {
+            await (0, index_1.printExport)({ passwd, encryptedFile: args.i });
         }
         else {
             printHelp('Missing either -e to encrypt or -d to decrypt');

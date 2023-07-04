@@ -141,9 +141,11 @@ decrypt({ encryptedFile: './somewhere/.secrets.custom.enc'});
 // From here on your app will have access to the secrets through `process.env.DB_PASS` and `process.env.SECRET_TOKEN`
 ```
 
-## Bonus
+## Recovery of unencrypted secrets file
 
 You want to decrypt and view the contents of your encrypted secrets file?
+A new team member wants to recreate the `.env` upon checkout of the project? (remember that `.env` is an unversioned file)
+Or you want to recreate the `.env` because it got lost or corrupted?
 
 You can use the same handy command-line `dotenvenc` you used to initially encrypt your unencrypted `.env` secrets file.
 
@@ -162,19 +164,36 @@ or if you used custom name instead of the default `.env.enc`:
 In both cases you will be prompted to provide the password that was used to create the encrypted file (if `DOTENVENC_PASS` is not set) and, assuming the password is correct, you will have the contents printed on the screen in the format:
 
 ```
-export VAR1=VALUE1;
-export VAR2=VALUE2;
+VAR1=VALUE1
+VAR2=VALUE2
 ...
 ```
 
-This is useful because you can use the shell's `eval` in a script and populate your environment dynamically without ever storing the sensitive information on disk.
+## Bonus
+
+You can dump the contents of your encrypted secrets file as shell `export` statements.
+
+Using the script's `-x` flag:
+
+```bash
+./node_modules/.bin/dotenvenc -x -i ./somewhere/.secrets.custom.enc
+```
+
+This will print on console:
 
 ```
-eval `./node_modules/.bin/dotenvenc -d`
+export VAR1=VALUE1;
+export VAR2=VALUE2;
+```
+
+### How is that useful?
+
+Using the shell's `eval` in a shell script you can populate your environment dynamically without ever storing the sensitive information on disk.
+
+```
+eval `./node_modules/.bin/dotenvenc -x`
 # all commands following in the script will now have access to the env variables
 ```
-
-Additionally this can be useful for recreating your `.env` (remember that `.env` is an unversioned file) in case it is lost or corrupted.
 
 ## Comments
 
@@ -194,4 +213,4 @@ VAR="a value" # text before the "#" is kept; text following the "#" is stripped
 
 * [Keeping passwords in source control](http://ejohn.org/blog/keeping-passwords-in-source-control/)
 * [envenc](https://www.npmjs.com/package/envenc)
-* Based on the now deprecated (dotenvenc)[https://www.npmjs.com/package/dotenvenc]()
+* Based on the now deprecated [dotenvenc](https://www.npmjs.com/package/dotenvenc)
