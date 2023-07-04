@@ -63,13 +63,51 @@ export async function decrypt(params?: decryptParams): Promise<{ [key: string]: 
     if (params && params.print) {
         for (const prop in parsedEnv) {
             if (parsedEnv.hasOwnProperty(prop)) {
-                console.log(`export ${prop}="${parsedEnv[prop].replace(/"/g, '\\"')}";`);
+                console.log(`${prop}=${parsedEnv[prop].replace(/"/g, '\\"')}`);
             }
         }
     } else if (logOutput) {
         console.log(logOutput);
     }
     return parsedEnv;
+}
+
+/**
+ * Read encrypted env file and print on console "export" statements for the env vars
+ * @param     {String}    passwd            the password for decrypting the encrypted .env.enc (memory only;no disk)
+ * @param     {String}    [encryptedFile]   the full path of encrypted file or DEFAULT_ENCRYPTED_PATHNAME if ommitted
+ * @returns   {void}                      
+ */
+export async function printExport(params?: decryptParams): Promise<void> {
+    let passwd = params && params.passwd;
+    if (!passwd) {
+        if (!process.env.DOTENVENC_PASS) {
+            passwd = await promptPassword(false);
+        } else {
+            passwd = process.env.DOTENVENC_PASS;
+        }
+    }
+    const encryptedFile = (params && params.encryptedFile) || DEFAULT_ENCRYPTED_FILE;
+    if (params && params.encryptedFile && !existsSync(params.encryptedFile)) {
+        throw new Error(`Encrypted secrets input file "${params.encryptedFile}" not found`);
+    }
+    const allEncrData = readFileSync(encryptedFile);
+    const [ivText, encText] = allEncrData.toString().split(':');
+    const ivBuff = Buffer.from(ivText, 'hex');
+    const encrBuff = Buffer.from(encText, 'hex');
+    const decipher = crypto.createDecipheriv(ALGOR, Buffer.concat([Buffer.from(passwd), BUFFER_PADDING], MAX_KEY_LENGTH), ivBuff);
+    const decrBuff = Buffer.concat([decipher.update(encrBuff), decipher.final()]);
+    const parsedEnv = dotenv.parse(decrBuff);
+    Object.assign(process.env, parsedEnv);
+    // Wrong passwd => empty list of env vars
+    if (JSON.stringify(parsedEnv) === '{}') {
+        throw new Error('Restored no env variables. Either empty input file or wrong password.');
+    }
+    for (const prop in parsedEnv) {
+        if (parsedEnv.hasOwnProperty(prop)) {
+            console.log(`export ${prop}="${parsedEnv[prop].replace(/"/g, '\\"')}";`);
+        }
+    }
 }
 
 /**

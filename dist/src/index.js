@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.promptPassword = exports.encrypt = exports.decrypt = exports.DEFAULT_DECRYPTED_FILE = exports.DEFAULT_ENCRYPTED_FILE = void 0;
+exports.promptPassword = exports.encrypt = exports.printExport = exports.decrypt = exports.DEFAULT_DECRYPTED_FILE = exports.DEFAULT_ENCRYPTED_FILE = void 0;
 // import Debug from 'debug';
 const crypto_1 = __importDefault(require("crypto"));
 const fs_1 = require("fs");
@@ -55,7 +55,7 @@ async function decrypt(params) {
     if (params && params.print) {
         for (const prop in parsedEnv) {
             if (parsedEnv.hasOwnProperty(prop)) {
-                console.log(`export ${prop}="${parsedEnv[prop].replace(/"/g, '\\"')}";`);
+                console.log(`${prop}=${parsedEnv[prop].replace(/"/g, '\\"')}`);
             }
         }
     }
@@ -65,6 +65,45 @@ async function decrypt(params) {
     return parsedEnv;
 }
 exports.decrypt = decrypt;
+/**
+ * Read encrypted env file and print on console "export" statements for the env vars
+ * @param     {String}    passwd            the password for decrypting the encrypted .env.enc (memory only;no disk)
+ * @param     {String}    [encryptedFile]   the full path of encrypted file or DEFAULT_ENCRYPTED_PATHNAME if ommitted
+ * @returns   {void}
+ */
+async function printExport(params) {
+    let passwd = params && params.passwd;
+    if (!passwd) {
+        if (!process.env.DOTENVENC_PASS) {
+            passwd = await promptPassword(false);
+        }
+        else {
+            passwd = process.env.DOTENVENC_PASS;
+        }
+    }
+    const encryptedFile = (params && params.encryptedFile) || exports.DEFAULT_ENCRYPTED_FILE;
+    if (params && params.encryptedFile && !(0, fs_1.existsSync)(params.encryptedFile)) {
+        throw new Error(`Encrypted secrets input file "${params.encryptedFile}" not found`);
+    }
+    const allEncrData = (0, fs_1.readFileSync)(encryptedFile);
+    const [ivText, encText] = allEncrData.toString().split(':');
+    const ivBuff = Buffer.from(ivText, 'hex');
+    const encrBuff = Buffer.from(encText, 'hex');
+    const decipher = crypto_1.default.createDecipheriv(ALGOR, Buffer.concat([Buffer.from(passwd), BUFFER_PADDING], MAX_KEY_LENGTH), ivBuff);
+    const decrBuff = Buffer.concat([decipher.update(encrBuff), decipher.final()]);
+    const parsedEnv = dotenv_1.default.parse(decrBuff);
+    Object.assign(process.env, parsedEnv);
+    // Wrong passwd => empty list of env vars
+    if (JSON.stringify(parsedEnv) === '{}') {
+        throw new Error('Restored no env variables. Either empty input file or wrong password.');
+    }
+    for (const prop in parsedEnv) {
+        if (parsedEnv.hasOwnProperty(prop)) {
+            console.log(`export ${prop}="${parsedEnv[prop].replace(/"/g, '\\"')}";`);
+        }
+    }
+}
+exports.printExport = printExport;
 /**
  * Write to disk encrypted env secrets file from decrypted env secrets file
  * @param     {String}    passwd             the password for encrypting the .env into .env.enc

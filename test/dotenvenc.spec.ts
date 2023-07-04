@@ -224,7 +224,7 @@ describe('decryption', () => {
     });
 
     it(`should console.log() decrypted env vars if passed "print: true"`, async () => {
-        const logSpy = sinon.spy(console, 'log');
+        const consoleLogSpy = sinon.spy(console, 'log');
         process.env.DOTENVENC_PASS = ENC_PASSWD;
         const data = await dotenvenc.decrypt({ print: true });
         expect(data).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With \"double quotes\" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla' });
@@ -234,12 +234,25 @@ describe('decryption', () => {
         expect(process.env.DELTA).to.equal('With \"double quotes\" inside');
         expect(process.env.DELTA_2).to.equal('With \'single quotes\' inside');
         expect(process.env.EPSILON).to.equal('bla');
-        expect(logSpy.callCount).to.equal(6);
-        expect(logSpy.getCall(0).args[0]).to.equal('export ALPHA="bar";');
-        expect(logSpy.getCall(1).args[0]).to.equal('export BETA="foo bar";');
-        expect(logSpy.getCall(2).args[0]).to.equal('export GAMMA="1234";');
-        expect(logSpy.getCall(3).args[0]).to.equal('export DELTA="With \\"double quotes\\" inside";');
-        expect(logSpy.getCall(4).args[0]).to.equal('export DELTA_2="With \'single quotes\' inside";');
-        expect(logSpy.getCall(5).args[0]).to.equal('export EPSILON="bla";');
+        expect(consoleLogSpy.callCount).to.equal(6);
+        expect(consoleLogSpy.getCall(0).args[0]).to.equal('ALPHA=bar');
+        expect(consoleLogSpy.getCall(1).args[0]).to.equal('BETA=foo bar');
+        expect(consoleLogSpy.getCall(2).args[0]).to.equal('GAMMA=1234');
+        expect(consoleLogSpy.getCall(3).args[0]).to.equal('DELTA=With \\"double quotes\\" inside');
+        expect(consoleLogSpy.getCall(4).args[0]).to.equal('DELTA_2=With \'single quotes\' inside');
+        expect(consoleLogSpy.getCall(5).args[0]).to.equal('EPSILON=bla');
+    });
+
+    it('should print a dump of "export" statements', async () => {
+        const consoleLogSpy = sinon.spy(console, 'log');
+        process.env.DOTENVENC_PASS = ENC_PASSWD;
+        await dotenvenc.printExport();
+        expect(consoleLogSpy.callCount).to.equal(6);
+        expect(consoleLogSpy.getCall(0).args[0]).to.equal('export ALPHA="bar";');
+        expect(consoleLogSpy.getCall(1).args[0]).to.equal('export BETA="foo bar";');
+        expect(consoleLogSpy.getCall(2).args[0]).to.equal('export GAMMA="1234";');
+        expect(consoleLogSpy.getCall(3).args[0]).to.equal('export DELTA="With \\"double quotes\\" inside";');
+        expect(consoleLogSpy.getCall(4).args[0]).to.equal('export DELTA_2="With \'single quotes\' inside";');
+        expect(consoleLogSpy.getCall(5).args[0]).to.equal('export EPSILON="bla";');
     });
 });
