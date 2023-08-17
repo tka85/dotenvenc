@@ -1,0 +1,74 @@
+# Source files (if you're transpiling or building your code)
+src/
+
+# Configuration files
+*.log
+*.tlog
+*.log.*
+.nyc_output
+.coverage/
+*.pid
+*.seed
+*.cmd
+*.swp
+*.swo
+*.lock
+*.log
+*.yml
+*.tmp
+*.bak
+*.swp
+.vscode/
+*.iml
+*.ini
+*.xml
+
+# Dependency directories
+node_modules/
+
+# Build/Output directories
+out/
+build/
+temp/
+
+# Test directories or files
+test/
+tests/
+*.test.js
+*.spec.js
+
+# System files
+.DS_Store
+Thumbs.db
+*.db
+*.sqlite
+
+# Documentation
+*.markdown
+*.MD
+*.MARKDOWN
+*.txt
+*.pdf
+*.doc
+*.docx
+
+# Other
+*.tar
+*.gz
+*.zip
+*.rar
+*.7z
+*.tgz
+*.patch
+*.diff
+*.sh
+*.bat
+*.cmd
+*.exe
+*.jar
+*.pem
+*.key
+
+.eslint*
+.mocha*
+tsconfig*
