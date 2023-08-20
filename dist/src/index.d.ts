@@ -1,12 +1,12 @@
 /// <reference types="node" />
 export declare const DEFAULT_ENCRYPTED_FILE = "./.env.enc";
 export declare const DEFAULT_DECRYPTED_FILE = "./.env";
-type decryptParams = {
+export type decryptParams = {
     passwd?: string;
     encryptedFile?: string;
     print?: boolean;
 };
-type encryptParams = {
+export type encryptParams = {
     passwd: string;
     decryptedFile?: string;
     encryptedFile?: string;
@@ -19,7 +19,7 @@ type encryptParams = {
  * @returns   {Object}                      the config object as it's parsed by dotenv
  */
 export declare function decrypt(params?: decryptParams): Promise<{
-    [key: string]: any;
+    [key: string]: string;
 }>;
 /**
  * Read encrypted env file and print on console "export" statements for the env vars
@@ -37,4 +37,3 @@ export declare function printExport(params?: decryptParams): Promise<void>;
  */
 export declare function encrypt(params?: encryptParams): Promise<Buffer>;
 export declare function promptPassword(askConfirmation: boolean): Promise<string>;
-export {};

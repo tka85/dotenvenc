@@ -13,13 +13,13 @@ const IV_LENGTH = 16;
 const MAX_KEY_LENGTH = 32;
 const BUFFER_PADDING = Buffer.alloc(MAX_KEY_LENGTH); // key used in createCipheriv()/createDecipheriv() buffer needs to be 32 bytes
 
-type decryptParams = {
+export type decryptParams = {
     passwd?: string, // default is process.env.DOTENVENC_PASS
     encryptedFile?: string, // default is ./.env.enc
     print?: boolean
 };
 
-type encryptParams = {
+export type encryptParams = {
     passwd: string, // default is process.env.DOTENVENC_PASS
     decryptedFile?: string, // default is ./.env
     encryptedFile?: string, // default is ./.env.enc
@@ -32,7 +32,7 @@ type encryptParams = {
  * @param     {Boolean}   [print]           whether to print result on console
  * @returns   {Object}                      the config object as it's parsed by dotenv
  */
-export async function decrypt(params?: decryptParams): Promise<{ [key: string]: any }> {
+export async function decrypt(params?: decryptParams): Promise<{ [key: string]: string }> {
     let passwd = params && params.passwd;
     // if passed params.print=true we don't want to print anything else besides the `export VAR=VAL` lines
     let logOutput = '';
