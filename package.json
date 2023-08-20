@@ -1,6 +1,6 @@
 {
   "name": "@tka85/dotenvenc",
-  "version": "5.0.1",
+  "version": "5.1.0",
   "description": "Encrypt and decrypt in-memory at runtime your .env file so you can store sensitive information (passwords etc.) in source control",
   "main": "dist/src/index.js",
   "scripts": {
