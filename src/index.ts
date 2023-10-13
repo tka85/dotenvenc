@@ -1,12 +1,13 @@
 // import Debug from 'debug';
 import crypto from 'crypto';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
-import dotenv from 'dotenv';
+import dotenv, { DotenvParseOutput } from 'dotenv';
 import prompts from 'prompts';
 
 // const debug = Debug('dotenvenc');
 
 export const DEFAULT_ENCRYPTED_FILE = './.env.enc';
+export const DEFAULT_ENCRYPTED_FILE_READABLE = './.env.enc.readable';
 export const DEFAULT_DECRYPTED_FILE = './.env';
 const ALGOR = 'aes-256-ctr';
 const IV_LENGTH = 16;
@@ -112,7 +113,7 @@ export async function printExport(params?: decryptParams): Promise<void> {
 
 /**
  * Write to disk encrypted env secrets file from decrypted env secrets file
- * @param     {String}    passwd             the password for encrypting the .env into .env.enc
+ * @param     {String}    [passwd]           the password for encrypting the .env into .env.enc
  * @param     {String}    [decryptedFile]    the full path of decrypted file or DEFAULT_DECRYPTED_PATHNAME if ommitted
  * @param     {String}    [encryptedFile]    the full path of encrypted file or DEFAULT_ENCRYPTED_PATHNAME if ommitted
  * @returns   {Buffer}                       returns Buffer with encrypted data [regardless of whether it persisted it on disk or not]
@@ -128,19 +129,34 @@ export async function encrypt(params?: encryptParams): Promise<Buffer> {
             passwd = process.env.DOTENVENC_PASS;
         }
     }
-    const decryptedFile = (params && params.decryptedFile) || DEFAULT_DECRYPTED_FILE;
-    const encryptedFile = (params && params.encryptedFile) || DEFAULT_ENCRYPTED_FILE;
-    if (!existsSync(decryptedFile)) {
-        throw new Error(`Dencrypted secrets input file "${decryptedFile}" not found`);
+    const decryptedFilename = (params && params.decryptedFile) || DEFAULT_DECRYPTED_FILE;
+    const encryptedFilename = (params && params.encryptedFile) || DEFAULT_ENCRYPTED_FILE;
+    if (!existsSync(decryptedFilename)) {
+        throw new Error(`Decrypted secrets input file "${decryptedFilename}" not found`);
     }
-    if (existsSync(encryptedFile)) {
-        console.log(`# Encrypted secrets output file "${encryptedFile}" already exists; overwriting...`);
+    if (existsSync(encryptedFilename)) {
+        console.log(`# Encrypted secrets output file "${encryptedFilename}" already exists; overwriting...`);
     }
+    const decryptedEnvContentsBuff = readFileSync(decryptedFilename);
+    const parsedEnvContents = dotenv.parse(decryptedEnvContentsBuff);
     const ivBuff = crypto.randomBytes(IV_LENGTH);
     const cipher = crypto.createCipheriv(ALGOR, Buffer.concat([Buffer.from(passwd), BUFFER_PADDING], MAX_KEY_LENGTH), ivBuff);
-    const encrBuff = Buffer.concat([cipher.update(readFileSync(decryptedFile)), cipher.final()]);
-    writeFileSync(encryptedFile, ivBuff.toString('hex') + ':' + encrBuff.toString('hex'));
+    const encrBuff = Buffer.concat([cipher.update(decryptedEnvContentsBuff), cipher.final()]);
+    writeFileSync(encryptedFilename, ivBuff.toString('hex') + ':' + encrBuff.toString('hex'));
+    encryptValuesOnly(encryptedFilename, passwd, parsedEnvContents);
     return encrBuff;
+}
+
+export function encryptValuesOnly(encryptedFilename: string, passwd: string, parsedEnvContents: DotenvParseOutput): void {
+    const encryptedValuesOnlyFilename = `${encryptedFilename}.readable`;
+    const encryptedValuesOnly = {};
+    Object.entries(parsedEnvContents).forEach(([varName, value]) => {
+        const encrValueHex = crypto.createHmac('sha256', passwd)
+            .update(value)
+            .digest('hex');
+        encryptedValuesOnly[varName] = encrValueHex;
+    });
+    writeFileSync(encryptedValuesOnlyFilename, JSON.stringify(encryptedValuesOnly, null, 2));
 }
 
 export async function promptPassword(askConfirmation: boolean): Promise<string> {

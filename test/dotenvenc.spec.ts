@@ -2,23 +2,26 @@ const ENC_PASSWD = 'superDuperPassword';
 const WRONG_ENC_PASSWD = 'wrong-password';
 const TEST_SAMPLE_DECRYPTED_FILE = './test/.env.sample';
 const TEST_SAMPLE_ENCRYPTED_FILE = './test/.env.sample.enc';
+const TEST_SAMPLE_ENCRYPTED_FILE_READABLE = './test/.env.sample.enc.readable';
 const CUSTOM_DECRYPTED_FILE = './.env.custom';
 const CUSTOM_ENCRYPTED_FILE = './.env.enc.custom';
+const CUSTOM_ENCRYPTED_FILE_READABLE = './.env.enc.custom.readable';
 
 
 const rewire = require("rewire");
 const dotenvenc = rewire('../src/index');
-import fs from 'fs';
+import { readFileSync, unlinkSync, writeFileSync } from 'fs';
 import { expect } from 'chai';
 import * as sinon from 'sinon';
 import chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
+import { DEFAULT_ENCRYPTED_FILE_READABLE } from '../src';
 
 chai.use(chaiAsPromised);
 
 function removeFile(filename) {
     try {
-        fs.unlinkSync(filename);
+        unlinkSync(filename);
     } catch (err) {
         // file didn't exist; ignore
     }
@@ -32,25 +35,35 @@ describe('encryption', () => {
         removeFile(dotenvenc.DEFAULT_ENCRYPTED_FILE);
         removeFile(CUSTOM_ENCRYPTED_FILE);
         // Restore decrypted files from pristine test sample files
-        fs.writeFileSync(dotenvenc.DEFAULT_DECRYPTED_FILE, fs.readFileSync(TEST_SAMPLE_DECRYPTED_FILE));
-        fs.writeFileSync(CUSTOM_DECRYPTED_FILE, fs.readFileSync(TEST_SAMPLE_DECRYPTED_FILE));
+        writeFileSync(dotenvenc.DEFAULT_DECRYPTED_FILE, readFileSync(TEST_SAMPLE_DECRYPTED_FILE));
+        writeFileSync(CUSTOM_DECRYPTED_FILE, readFileSync(TEST_SAMPLE_DECRYPTED_FILE));
     });
 
     afterEach(() => {
         removeFile(dotenvenc.DEFAULT_DECRYPTED_FILE);
         removeFile(CUSTOM_DECRYPTED_FILE);
         removeFile(dotenvenc.DEFAULT_ENCRYPTED_FILE);
+        removeFile(dotenvenc.DEFAULT_ENCRYPTED_FILE_READABLE);
         removeFile(CUSTOM_ENCRYPTED_FILE);
+        removeFile(CUSTOM_ENCRYPTED_FILE_READABLE);
     });
 
     it(`should encrypt default decrypted file ${dotenvenc.DEFAULT_DECRYPTED_FILE} into default encrypted file ${dotenvenc.DEFAULT_ENCRYPTED_FILE}`, async () => {
         await dotenvenc.encrypt({ passwd: ENC_PASSWD, decryptedFile: dotenvenc.DEFAULT_DECRYPTED_FILE, encryptedFile: dotenvenc.DEFAULT_ENCRYPTED_FILE });
         expect(await dotenvenc.decrypt({ passwd: ENC_PASSWD, encryptedFile: dotenvenc.DEFAULT_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With \"double quotes\" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
+        // encrypt() generates .readable file as well
+        const encryptedFileReadableContents = readFileSync(DEFAULT_ENCRYPTED_FILE_READABLE, 'utf8');
+        const encryptedFileReadableContentsReference = readFileSync(TEST_SAMPLE_ENCRYPTED_FILE_READABLE, 'utf8');
+        expect(encryptedFileReadableContents).to.be.equal(encryptedFileReadableContentsReference);
     });
 
     it(`should encrypt default decrypted file ${dotenvenc.DEFAULT_DECRYPTED_FILE} into custom encrypted file ${CUSTOM_ENCRYPTED_FILE}`, async () => {
         await dotenvenc.encrypt({ passwd: ENC_PASSWD, encryptedFile: CUSTOM_ENCRYPTED_FILE });
         expect(await dotenvenc.decrypt({ passwd: ENC_PASSWD, encryptedFile: CUSTOM_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With \"double quotes\" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
+        // encrypt() generates .readable file as well
+        const encryptedFileReadableContents = readFileSync(CUSTOM_ENCRYPTED_FILE_READABLE, 'utf8');
+        const encryptedFileReadableContentsReference = readFileSync(TEST_SAMPLE_ENCRYPTED_FILE_READABLE, 'utf8');
+        expect(encryptedFileReadableContents).to.be.equal(encryptedFileReadableContentsReference);
     });
 
     it(`should encrypt custom decrypted file ${CUSTOM_DECRYPTED_FILE} into default encrypted file ${dotenvenc.DEFAULT_ENCRYPTED_FILE}`, async () => {
@@ -106,8 +119,8 @@ describe('decryption', () => {
         removeFile(dotenvenc.DEFAULT_ENCRYPTED_FILE);
         removeFile(CUSTOM_ENCRYPTED_FILE);
         // Restore encrypted files from pristine sample
-        fs.writeFileSync(dotenvenc.DEFAULT_ENCRYPTED_FILE, fs.readFileSync(TEST_SAMPLE_ENCRYPTED_FILE));
-        fs.writeFileSync(CUSTOM_ENCRYPTED_FILE, fs.readFileSync(TEST_SAMPLE_ENCRYPTED_FILE));
+        writeFileSync(dotenvenc.DEFAULT_ENCRYPTED_FILE, readFileSync(TEST_SAMPLE_ENCRYPTED_FILE));
+        writeFileSync(CUSTOM_ENCRYPTED_FILE, readFileSync(TEST_SAMPLE_ENCRYPTED_FILE));
     });
 
     afterEach(() => {

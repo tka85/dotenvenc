@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.promptPassword = exports.encrypt = exports.printExport = exports.decrypt = exports.DEFAULT_DECRYPTED_FILE = exports.DEFAULT_ENCRYPTED_FILE = void 0;
+exports.promptPassword = exports.encryptValuesOnly = exports.encrypt = exports.printExport = exports.decrypt = exports.DEFAULT_DECRYPTED_FILE = exports.DEFAULT_ENCRYPTED_FILE_READABLE = exports.DEFAULT_ENCRYPTED_FILE = void 0;
 // import Debug from 'debug';
 const crypto_1 = __importDefault(require("crypto"));
 const fs_1 = require("fs");
@@ -11,6 +11,7 @@ const dotenv_1 = __importDefault(require("dotenv"));
 const prompts_1 = __importDefault(require("prompts"));
 // const debug = Debug('dotenvenc');
 exports.DEFAULT_ENCRYPTED_FILE = './.env.enc';
+exports.DEFAULT_ENCRYPTED_FILE_READABLE = './.env.enc.readable';
 exports.DEFAULT_DECRYPTED_FILE = './.env';
 const ALGOR = 'aes-256-ctr';
 const IV_LENGTH = 16;
@@ -106,7 +107,7 @@ async function printExport(params) {
 exports.printExport = printExport;
 /**
  * Write to disk encrypted env secrets file from decrypted env secrets file
- * @param     {String}    passwd             the password for encrypting the .env into .env.enc
+ * @param     {String}    [passwd]           the password for encrypting the .env into .env.enc
  * @param     {String}    [decryptedFile]    the full path of decrypted file or DEFAULT_DECRYPTED_PATHNAME if ommitted
  * @param     {String}    [encryptedFile]    the full path of encrypted file or DEFAULT_ENCRYPTED_PATHNAME if ommitted
  * @returns   {Buffer}                       returns Buffer with encrypted data [regardless of whether it persisted it on disk or not]
@@ -123,21 +124,36 @@ async function encrypt(params) {
             passwd = process.env.DOTENVENC_PASS;
         }
     }
-    const decryptedFile = (params && params.decryptedFile) || exports.DEFAULT_DECRYPTED_FILE;
-    const encryptedFile = (params && params.encryptedFile) || exports.DEFAULT_ENCRYPTED_FILE;
-    if (!(0, fs_1.existsSync)(decryptedFile)) {
-        throw new Error(`Dencrypted secrets input file "${decryptedFile}" not found`);
+    const decryptedFilename = (params && params.decryptedFile) || exports.DEFAULT_DECRYPTED_FILE;
+    const encryptedFilename = (params && params.encryptedFile) || exports.DEFAULT_ENCRYPTED_FILE;
+    if (!(0, fs_1.existsSync)(decryptedFilename)) {
+        throw new Error(`Decrypted secrets input file "${decryptedFilename}" not found`);
     }
-    if ((0, fs_1.existsSync)(encryptedFile)) {
-        console.log(`# Encrypted secrets output file "${encryptedFile}" already exists; overwriting...`);
+    if ((0, fs_1.existsSync)(encryptedFilename)) {
+        console.log(`# Encrypted secrets output file "${encryptedFilename}" already exists; overwriting...`);
     }
+    const decryptedEnvContentsBuff = (0, fs_1.readFileSync)(decryptedFilename);
+    const parsedDotEnvContents = dotenv_1.default.parse(decryptedEnvContentsBuff);
     const ivBuff = crypto_1.default.randomBytes(IV_LENGTH);
     const cipher = crypto_1.default.createCipheriv(ALGOR, Buffer.concat([Buffer.from(passwd), BUFFER_PADDING], MAX_KEY_LENGTH), ivBuff);
-    const encrBuff = Buffer.concat([cipher.update((0, fs_1.readFileSync)(decryptedFile)), cipher.final()]);
-    (0, fs_1.writeFileSync)(encryptedFile, ivBuff.toString('hex') + ':' + encrBuff.toString('hex'));
+    const encrBuff = Buffer.concat([cipher.update(decryptedEnvContentsBuff), cipher.final()]);
+    (0, fs_1.writeFileSync)(encryptedFilename, ivBuff.toString('hex') + ':' + encrBuff.toString('hex'));
+    encryptValuesOnly(encryptedFilename, passwd, parsedDotEnvContents);
     return encrBuff;
 }
 exports.encrypt = encrypt;
+function encryptValuesOnly(encryptedFilename, passwd, parsedDotEnvContents) {
+    const encryptedValuesOnlyFilename = `${encryptedFilename}.readable`;
+    const encryptedValuesOnly = {};
+    Object.entries(parsedDotEnvContents).forEach(([varName, value]) => {
+        const encrValueHex = crypto_1.default.createHmac('sha256', passwd)
+            .update(value)
+            .digest('hex');
+        encryptedValuesOnly[varName] = encrValueHex;
+    });
+    (0, fs_1.writeFileSync)(encryptedValuesOnlyFilename, JSON.stringify(encryptedValuesOnly, null, 2));
+}
+exports.encryptValuesOnly = encryptValuesOnly;
 async function promptPassword(askConfirmation) {
     const { passwd } = await (0, prompts_1.default)({
         type: 'password',

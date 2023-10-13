@@ -33,6 +33,14 @@ And are you using [`dotenv`](https://www.npmjs.com/package/dotenv) to expose tho
 
 Add `.env` in your `.gitignore` so your unencrypted secrets are guaranteed to never get committed in your codebase.
 
+## New feature in v5.2.0
+
+Each time you encrypt your `.env` now you get additionally to the `.env.enc` also a file `.env.enc.readable` (or if you are using a custom env file, the same named with a `.enc.readable` suffix). This file contains the variable names in human readable form, and the values are the HMAC digests of the corresponding `.env` values. Why? So that you can see each time you re-generate the encrypted `.env.enc`, which variables have potentially changed.
+
+### CAUTION
+
+If this `.readable` file is committed to a public repository, it exposes you to the danger that, even though HMAC is a cryptographic hash function which is designed to be difficult to reverse, an attacker might attempt a brute force or dictionary attack and expose your secrets.
+
 ## Installation
 
 ```bash
