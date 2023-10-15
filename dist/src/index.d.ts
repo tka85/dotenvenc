@@ -1,5 +1,7 @@
 /// <reference types="node" />
+import { DotenvParseOutput } from 'dotenv';
 export declare const DEFAULT_ENCRYPTED_FILE = "./.env.enc";
+export declare const DEFAULT_ENCRYPTED_FILE_READABLE = "./.env.enc.readable";
 export declare const DEFAULT_DECRYPTED_FILE = "./.env";
 export type decryptParams = {
     passwd?: string;
@@ -30,10 +32,11 @@ export declare function decrypt(params?: decryptParams): Promise<{
 export declare function printExport(params?: decryptParams): Promise<void>;
 /**
  * Write to disk encrypted env secrets file from decrypted env secrets file
- * @param     {String}    passwd             the password for encrypting the .env into .env.enc
+ * @param     {String}    [passwd]           the password for encrypting the .env into .env.enc
  * @param     {String}    [decryptedFile]    the full path of decrypted file or DEFAULT_DECRYPTED_PATHNAME if ommitted
  * @param     {String}    [encryptedFile]    the full path of encrypted file or DEFAULT_ENCRYPTED_PATHNAME if ommitted
  * @returns   {Buffer}                       returns Buffer with encrypted data [regardless of whether it persisted it on disk or not]
  */
 export declare function encrypt(params?: encryptParams): Promise<Buffer>;
+export declare function encryptValuesOnly(encryptedFilename: string, passwd: string, parsedDotEnvContents: DotenvParseOutput): void;
 export declare function promptPassword(askConfirmation: boolean): Promise<string>;
