@@ -1,6 +1,6 @@
 {
   "name": "@tka85/dotenvenc",
-  "version": "5.2.0",
+  "version": "5.3.0",
   "description": "Encrypt and decrypt in-memory at runtime your .env file so you can store sensitive information (passwords etc.) in source control",
   "main": "dist/src/index.js",
   "scripts": {
@@ -37,10 +37,10 @@
   },
   "devDependencies": {
     "@tsconfig/node18": "1.0.1",
-    "@types/chai-as-promised": "7.1.5",
-    "@types/node": "18.15.9",
     "@types/chai": "4.3.4",
+    "@types/chai-as-promised": "7.1.5",
     "@types/mocha": "10.0.1",
+    "@types/node": "18.15.9",
     "@types/rewire": "2.5.28",
     "@types/sinon": "10.0.13",
     "chai": "4.3.7",

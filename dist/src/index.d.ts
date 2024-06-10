@@ -12,6 +12,7 @@ export type encryptParams = {
     passwd: string;
     decryptedFile?: string;
     encryptedFile?: string;
+    includeReadable?: boolean;
 };
 /**
  * Read encrypted env file and either print it on console or populate process.env from it
@@ -38,5 +39,5 @@ export declare function printExport(params?: decryptParams): Promise<void>;
  * @returns   {Buffer}                       returns Buffer with encrypted data [regardless of whether it persisted it on disk or not]
  */
 export declare function encrypt(params?: encryptParams): Promise<Buffer>;
-export declare function encryptValuesOnly(encryptedFilename: string, passwd: string, parsedDotEnvContents: DotenvParseOutput): void;
+export declare function encryptValuesOnly(encryptedFilename: string, passwd: string, parsedEnvContents: DotenvParseOutput): void;
 export declare function promptPassword(askConfirmation: boolean): Promise<string>;

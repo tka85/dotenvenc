@@ -133,19 +133,21 @@ async function encrypt(params) {
         console.log(`# Encrypted secrets output file "${encryptedFilename}" already exists; overwriting...`);
     }
     const decryptedEnvContentsBuff = (0, fs_1.readFileSync)(decryptedFilename);
-    const parsedDotEnvContents = dotenv_1.default.parse(decryptedEnvContentsBuff);
+    const parsedEnvContents = dotenv_1.default.parse(decryptedEnvContentsBuff);
     const ivBuff = crypto_1.default.randomBytes(IV_LENGTH);
     const cipher = crypto_1.default.createCipheriv(ALGOR, Buffer.concat([Buffer.from(passwd), BUFFER_PADDING], MAX_KEY_LENGTH), ivBuff);
     const encrBuff = Buffer.concat([cipher.update(decryptedEnvContentsBuff), cipher.final()]);
     (0, fs_1.writeFileSync)(encryptedFilename, ivBuff.toString('hex') + ':' + encrBuff.toString('hex'));
-    encryptValuesOnly(encryptedFilename, passwd, parsedDotEnvContents);
+    if (params?.includeReadable === true) {
+        encryptValuesOnly(encryptedFilename, passwd, parsedEnvContents);
+    }
     return encrBuff;
 }
 exports.encrypt = encrypt;
-function encryptValuesOnly(encryptedFilename, passwd, parsedDotEnvContents) {
+function encryptValuesOnly(encryptedFilename, passwd, parsedEnvContents) {
     const encryptedValuesOnlyFilename = `${encryptedFilename}.readable`;
     const encryptedValuesOnly = {};
-    Object.entries(parsedDotEnvContents).forEach(([varName, value]) => {
+    Object.entries(parsedEnvContents).forEach(([varName, value]) => {
         const encrValueHex = crypto_1.default.createHmac('sha256', passwd)
             .update(value)
             .digest('hex');
