@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-import { encrypt, decrypt, DEFAULT_DECRYPTED_FILE, DEFAULT_ENCRYPTED_FILE, printExport } from './index';
+import { encrypt, decrypt, DEFAULT_DECRYPTED_FILE, DEFAULT_ENCRYPTED_FILE, printExport, DEFAULT_ENCRYPTED_FILE_READABLE } from './index';
 
 const args = require('minimist')(process.argv.slice(2), {
-    boolean: ['e', 'd', 'h'],
+    boolean: ['e', 'r', 'd', 'h'],
     string: ['i', 'o'],
     alias: {
         e: 'encrypt',
@@ -10,6 +10,7 @@ const args = require('minimist')(process.argv.slice(2), {
         i: 'input',
         o: 'output',
         x: 'export',
+        r: 'readable',
         h: 'help',
     }
 });
@@ -39,13 +40,18 @@ function printHelp(errorMsg?: string) {
     -i, --input      the input file (with absolute path); if decrypting this is the encrypted file (default is "${DEFAULT_ENCRYPTED_FILE}"); if encrypting this is the decrypted file (default is "${DEFAULT_DECRYPTED_FILE}")
     -o, --output     [for encrypting only] the output file (with absolute path); this is the resulting encrypted file (default is "${DEFAULT_ENCRYPTED_FILE}")
     -x, --export     to dump as "export" statements the contents of an encrypted .env.enc file
+    -r, --readable   to also add a .env.enc.readable when encrypting a .env which will contain have only the values encrypted
     -h, --help       print this help
 
 * Encryption examples:
     - To encrypt default unencrypted "${DEFAULT_DECRYPTED_FILE}" into default encrypted "${DEFAULT_ENCRYPTED_FILE}"
         $ ./node_modules/.bin/dotenvenc -e
+    - To encrypt default unencrypted "${DEFAULT_DECRYPTED_FILE}" into default encrypted "${DEFAULT_ENCRYPTED_FILE}" plus get a semi-readable "${DEFAULT_ENCRYPTED_FILE_READABLE}"
+        $ ./node_modules/.bin/dotenvenc -e -r
     - To encrypt default unencrypted "${DEFAULT_DECRYPTED_FILE}" into custom encrypted file "/somewhere/else/.env.enc.custom"
         $ ./node_modules/.bin/dotenvenc -e -o /somewhere/else/.env.enc.custom
+    - To encrypt default unencrypted "${DEFAULT_DECRYPTED_FILE}" into custom encrypted file "/somewhere/else/.env.enc.custom" plus get a semi-readable "/somewhere/else/.env.enc.custom.readable"
+        $ ./node_modules/.bin/dotenvenc -e -r -o /somewhere/else/.env.enc.custom
     - To encrypt custom unencrypted "/elsewhere/.env.custom" into default encrypted file "${DEFAULT_ENCRYPTED_FILE}"
         $ ./node_modules/.bin/dotenvenc -e -i /elsewhere/.env.custom
     - To encrypt custom unencrypted "/elsewhere/.env.custom" into custom encrypted file "/somewhere/else/.env.enc.custom"
@@ -72,8 +78,11 @@ function printHelp(errorMsg?: string) {
         if (args.d) {
             await decrypt({ passwd, encryptedFile: args.i, print: true });
         } else if (args.e) {
-            await encrypt({ passwd, decryptedFile: args.i, encryptedFile: args.o });
+            await encrypt({ passwd, decryptedFile: args.i, encryptedFile: args.o, includeReadable: args.r });
             console.log(`Saved encrypted file: ${args.o ?? DEFAULT_ENCRYPTED_FILE}`)
+            if (args.r) {
+                console.log(`And additionally saved semi-encrypted file: ${args.o ?? DEFAULT_ENCRYPTED_FILE}.readable`)
+            }
         } else if (args.x) {
             await printExport({ passwd, encryptedFile: args.i });
         } else {

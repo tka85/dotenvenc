@@ -36,7 +36,7 @@ const CUSTOM_ENCRYPTED_FILE = './.env.enc.custom';
 const CUSTOM_ENCRYPTED_FILE_READABLE = './.env.enc.custom.readable';
 const rewire = require("rewire");
 const dotenvenc = rewire('../src/index');
-const fs_1 = __importStar(require("fs"));
+const fs_1 = require("fs");
 const chai_1 = require("chai");
 const sinon = __importStar(require("sinon"));
 const chai_2 = __importDefault(require("chai"));
@@ -45,7 +45,7 @@ const src_1 = require("../src");
 chai_2.default.use(chai_as_promised_1.default);
 function removeFile(filename) {
     try {
-        fs_1.default.unlinkSync(filename);
+        (0, fs_1.unlinkSync)(filename);
     }
     catch (err) {
         // file didn't exist; ignore
@@ -59,8 +59,8 @@ describe('encryption', () => {
         removeFile(dotenvenc.DEFAULT_ENCRYPTED_FILE);
         removeFile(CUSTOM_ENCRYPTED_FILE);
         // Restore decrypted files from pristine test sample files
-        fs_1.default.writeFileSync(dotenvenc.DEFAULT_DECRYPTED_FILE, fs_1.default.readFileSync(TEST_SAMPLE_DECRYPTED_FILE));
-        fs_1.default.writeFileSync(CUSTOM_DECRYPTED_FILE, fs_1.default.readFileSync(TEST_SAMPLE_DECRYPTED_FILE));
+        (0, fs_1.writeFileSync)(dotenvenc.DEFAULT_DECRYPTED_FILE, (0, fs_1.readFileSync)(TEST_SAMPLE_DECRYPTED_FILE));
+        (0, fs_1.writeFileSync)(CUSTOM_DECRYPTED_FILE, (0, fs_1.readFileSync)(TEST_SAMPLE_DECRYPTED_FILE));
     });
     afterEach(() => {
         removeFile(dotenvenc.DEFAULT_DECRYPTED_FILE);
@@ -70,24 +70,34 @@ describe('encryption', () => {
         removeFile(CUSTOM_ENCRYPTED_FILE);
         removeFile(CUSTOM_ENCRYPTED_FILE_READABLE);
     });
-    it(`should encrypt default decrypted file ${dotenvenc.DEFAULT_DECRYPTED_FILE} into default encrypted file ${dotenvenc.DEFAULT_ENCRYPTED_FILE}`, async () => {
-        await dotenvenc.encrypt({ passwd: ENC_PASSWD, decryptedFile: dotenvenc.DEFAULT_DECRYPTED_FILE, encryptedFile: dotenvenc.DEFAULT_ENCRYPTED_FILE });
+    it(`should encrypt default decrypted file ${dotenvenc.DEFAULT_DECRYPTED_FILE} into default encrypted file ${dotenvenc.DEFAULT_ENCRYPTED_FILE} without semi-readable '.readable' file generated`, async () => {
+        await dotenvenc.encrypt({ passwd: ENC_PASSWD, decryptedFile: dotenvenc.DEFAULT_DECRYPTED_FILE, encryptedFile: dotenvenc.DEFAULT_ENCRYPTED_FILE, includeReadable: false });
         (0, chai_1.expect)(await dotenvenc.decrypt({ passwd: ENC_PASSWD, encryptedFile: dotenvenc.DEFAULT_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With \"double quotes\" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
-        // encrypt() generates .readable file as well
+    });
+    it(`should encrypt default decrypted file ${dotenvenc.DEFAULT_DECRYPTED_FILE} into default encrypted file ${dotenvenc.DEFAULT_ENCRYPTED_FILE} also with semi-readable '.readable' file generated`, async () => {
+        await dotenvenc.encrypt({ passwd: ENC_PASSWD, decryptedFile: dotenvenc.DEFAULT_DECRYPTED_FILE, encryptedFile: dotenvenc.DEFAULT_ENCRYPTED_FILE, includeReadable: true });
+        (0, chai_1.expect)(await dotenvenc.decrypt({ passwd: ENC_PASSWD, encryptedFile: dotenvenc.DEFAULT_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With \"double quotes\" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
         const encryptedFileReadableContents = (0, fs_1.readFileSync)(src_1.DEFAULT_ENCRYPTED_FILE_READABLE, 'utf8');
         const encryptedFileReadableContentsReference = (0, fs_1.readFileSync)(TEST_SAMPLE_ENCRYPTED_FILE_READABLE, 'utf8');
         (0, chai_1.expect)(encryptedFileReadableContents).to.be.equal(encryptedFileReadableContentsReference);
     });
-    it(`should encrypt default decrypted file ${dotenvenc.DEFAULT_DECRYPTED_FILE} into custom encrypted file ${CUSTOM_ENCRYPTED_FILE}`, async () => {
-        await dotenvenc.encrypt({ passwd: ENC_PASSWD, encryptedFile: CUSTOM_ENCRYPTED_FILE });
+    it(`should encrypt default decrypted file ${dotenvenc.DEFAULT_DECRYPTED_FILE} into custom encrypted file ${CUSTOM_ENCRYPTED_FILE} without semi-readable '.readable' file generated`, async () => {
+        await dotenvenc.encrypt({ passwd: ENC_PASSWD, encryptedFile: CUSTOM_ENCRYPTED_FILE, includeReadable: false });
         (0, chai_1.expect)(await dotenvenc.decrypt({ passwd: ENC_PASSWD, encryptedFile: CUSTOM_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With \"double quotes\" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
-        // encrypt() generates .readable file as well
+    });
+    it(`should encrypt default decrypted file ${dotenvenc.DEFAULT_DECRYPTED_FILE} into custom encrypted file ${CUSTOM_ENCRYPTED_FILE} also with semi-readable '.readable' file generated`, async () => {
+        await dotenvenc.encrypt({ passwd: ENC_PASSWD, encryptedFile: CUSTOM_ENCRYPTED_FILE, includeReadable: true });
+        (0, chai_1.expect)(await dotenvenc.decrypt({ passwd: ENC_PASSWD, encryptedFile: CUSTOM_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With \"double quotes\" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
         const encryptedFileReadableContents = (0, fs_1.readFileSync)(CUSTOM_ENCRYPTED_FILE_READABLE, 'utf8');
         const encryptedFileReadableContentsReference = (0, fs_1.readFileSync)(TEST_SAMPLE_ENCRYPTED_FILE_READABLE, 'utf8');
         (0, chai_1.expect)(encryptedFileReadableContents).to.be.equal(encryptedFileReadableContentsReference);
     });
-    it(`should encrypt custom decrypted file ${CUSTOM_DECRYPTED_FILE} into default encrypted file ${dotenvenc.DEFAULT_ENCRYPTED_FILE}`, async () => {
-        await dotenvenc.encrypt({ passwd: ENC_PASSWD, decryptedFile: CUSTOM_DECRYPTED_FILE, encryptedFile: CUSTOM_ENCRYPTED_FILE });
+    it(`should encrypt custom decrypted file ${CUSTOM_DECRYPTED_FILE} into default encrypted file ${dotenvenc.DEFAULT_ENCRYPTED_FILE} without semi-readable '.readable' file generated`, async () => {
+        await dotenvenc.encrypt({ passwd: ENC_PASSWD, decryptedFile: CUSTOM_DECRYPTED_FILE, encryptedFile: CUSTOM_ENCRYPTED_FILE, includeReadable: false });
+        (0, chai_1.expect)(await dotenvenc.decrypt({ passwd: ENC_PASSWD, encryptedFile: CUSTOM_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With \"double quotes\" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
+    });
+    it(`should encrypt custom decrypted file ${CUSTOM_DECRYPTED_FILE} into default encrypted file ${dotenvenc.DEFAULT_ENCRYPTED_FILE} also with semi-readable '.readable' file generated`, async () => {
+        await dotenvenc.encrypt({ passwd: ENC_PASSWD, decryptedFile: CUSTOM_DECRYPTED_FILE, encryptedFile: CUSTOM_ENCRYPTED_FILE, includeReadable: true });
         (0, chai_1.expect)(await dotenvenc.decrypt({ passwd: ENC_PASSWD, encryptedFile: CUSTOM_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With \"double quotes\" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
     });
     it(`should encrypt custom decrypted file ${CUSTOM_DECRYPTED_FILE} into custom encrypted file ${CUSTOM_ENCRYPTED_FILE}`, async () => {
@@ -133,8 +143,8 @@ describe('decryption', () => {
         removeFile(dotenvenc.DEFAULT_ENCRYPTED_FILE);
         removeFile(CUSTOM_ENCRYPTED_FILE);
         // Restore encrypted files from pristine sample
-        fs_1.default.writeFileSync(dotenvenc.DEFAULT_ENCRYPTED_FILE, fs_1.default.readFileSync(TEST_SAMPLE_ENCRYPTED_FILE));
-        fs_1.default.writeFileSync(CUSTOM_ENCRYPTED_FILE, fs_1.default.readFileSync(TEST_SAMPLE_ENCRYPTED_FILE));
+        (0, fs_1.writeFileSync)(dotenvenc.DEFAULT_ENCRYPTED_FILE, (0, fs_1.readFileSync)(TEST_SAMPLE_ENCRYPTED_FILE));
+        (0, fs_1.writeFileSync)(CUSTOM_ENCRYPTED_FILE, (0, fs_1.readFileSync)(TEST_SAMPLE_ENCRYPTED_FILE));
     });
     afterEach(() => {
         sinon.restore();

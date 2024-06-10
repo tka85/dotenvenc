@@ -24,6 +24,7 @@ export type encryptParams = {
     passwd: string, // default is process.env.DOTENVENC_PASS
     decryptedFile?: string, // default is ./.env
     encryptedFile?: string, // default is ./.env.enc
+    includeReadable?: boolean, // default is false
 };
 
 /**
@@ -143,7 +144,9 @@ export async function encrypt(params?: encryptParams): Promise<Buffer> {
     const cipher = crypto.createCipheriv(ALGOR, Buffer.concat([Buffer.from(passwd), BUFFER_PADDING], MAX_KEY_LENGTH), ivBuff);
     const encrBuff = Buffer.concat([cipher.update(decryptedEnvContentsBuff), cipher.final()]);
     writeFileSync(encryptedFilename, ivBuff.toString('hex') + ':' + encrBuff.toString('hex'));
-    encryptValuesOnly(encryptedFilename, passwd, parsedEnvContents);
+    if (params?.includeReadable === true) {
+        encryptValuesOnly(encryptedFilename, passwd, parsedEnvContents);
+    }
     return encrBuff;
 }
 
