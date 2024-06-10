@@ -35,7 +35,7 @@ Add `.env` in your `.gitignore` so your unencrypted secrets are guaranteed to ne
 
 ## New feature in v5.2.0
 
-Each time you encrypt your `.env` now you get additionally to the `.env.enc` also a file `.env.enc.readable` (or if you are using a custom env file, the same named with a `.enc.readable` suffix). This file contains the variable names in human readable form, and the values are the HMAC digests of the corresponding `.env` values. Why? So that you can see each time you re-generate the encrypted `.env.enc`, which variables have potentially changed.
+Each time you encrypt your `.env` now you select (`-r` parameter) to get additionally to the `.env.enc` also a `.env.enc.readable` file (or if you are using a custom env file, the same named with a `.enc.readable` suffix). This extra `.readable` file contains the variable names in human readable form, and the values as HMAC digests. How is that useful? It serves so you can see each time you re-generate the encrypted `.env.enc`, which entreis have been changed.
 
 ### CAUTION
 
@@ -88,6 +88,12 @@ If your unencrypted secrets file is `.env` and resides at the root of the projec
 ```
 
 will prompt you (x2) for an encryption password (unless `DOTENVENC_PASS` is set) and proceed to generate an encrypted secrets file `.env.enc`.
+
+Optionally you can also generate the semi-readable `.readable` file passing `-r` additionally to `-e`:
+
+```bash
+./node_modules/.bin/dotenvenc -e
+```
 
 And if your unencrypted secrets file is not named the default `.env`, we have you covered:
 
