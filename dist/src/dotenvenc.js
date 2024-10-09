@@ -76,13 +76,13 @@ function printHelp(errorMsg) {
     else {
         let passwd;
         if (args.d) {
-            await (0, index_1.decrypt)({ passwd, encryptedFile: args.i, print: true });
+            await (0, index_1.decrypt)({ passwd, encryptedFile: args.i, print: true, silent: args.s });
         }
         else if (args.e) {
-            await (0, index_1.encrypt)({ passwd, decryptedFile: args.i, encryptedFile: args.o, includeReadable: args.r });
-            console.log(`Saved encrypted file: ${args.o ?? index_1.DEFAULT_ENCRYPTED_FILE}`);
+            await (0, index_1.encrypt)({ passwd, decryptedFile: args.i, encryptedFile: args.o, includeReadable: args.r, silent: args.s });
+            (0, index_1.log)({ data: `Saved encrypted file: ${args.o ?? index_1.DEFAULT_ENCRYPTED_FILE}`, silent: args.s });
             if (args.r) {
-                console.log(`And additionally saved semi-encrypted file: ${args.o ?? index_1.DEFAULT_ENCRYPTED_FILE}.readable`);
+                (0, index_1.log)({ data: `And additionally saved semi-encrypted file: ${args.o ?? index_1.DEFAULT_ENCRYPTED_FILE}.readable`, silent: args.s });
             }
         }
         else if (args.x) {

@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.promptPassword = exports.encryptValuesOnly = exports.encrypt = exports.printExport = exports.decrypt = exports.DEFAULT_DECRYPTED_FILE = exports.DEFAULT_ENCRYPTED_FILE_READABLE = exports.DEFAULT_ENCRYPTED_FILE = void 0;
+exports.promptPassword = exports.encryptValuesOnly = exports.encrypt = exports.printExport = exports.decrypt = exports.log = exports.DEFAULT_DECRYPTED_FILE = exports.DEFAULT_ENCRYPTED_FILE_READABLE = exports.DEFAULT_ENCRYPTED_FILE = void 0;
 // import Debug from 'debug';
 const crypto_1 = __importDefault(require("crypto"));
 const fs_1 = require("fs");
@@ -22,6 +22,7 @@ function log({ data, silent }) {
         console.log(data);
     }
 }
+exports.log = log;
 /**
  * Read encrypted env file and either print it on console or populate process.env from it
  * @param     {String}    passwd            the password for decrypting the encrypted .env.enc (memory only;no disk)
@@ -31,11 +32,12 @@ function log({ data, silent }) {
  */
 async function decrypt(params) {
     let passwd = params && params.passwd;
-    const silent = params && !params.silent;
+    const silent = params && params.silent;
     // if passed params.print=true we don't want to print anything else besides the `export VAR=VAL` lines
     let logOutput = '';
     if (!passwd) {
         if (!process.env.DOTENVENC_PASS) {
+            log({ data: '# WARNING: no env variable DOTENVENC_PASS found; prompting for encryption password', silent });
             passwd = await promptPassword(false);
         }
         else {
@@ -120,7 +122,7 @@ exports.printExport = printExport;
  */
 async function encrypt(params) {
     let passwd = params && params.passwd;
-    const silent = params && !params.silent;
+    const silent = params && params.silent;
     if (!passwd) {
         if (!process.env.DOTENVENC_PASS) {
             log({ data: '# WARNING: no env variable DOTENVENC_PASS found; prompting for encryption password', silent });
@@ -137,7 +139,7 @@ async function encrypt(params) {
         throw new Error(`Decrypted secrets input file "${decryptedFilename}" not found`);
     }
     if ((0, fs_1.existsSync)(encryptedFilename)) {
-        log({ data: `# WARNING: encrypted secrets output file "${encryptedFilename}" already exists; overwriting...` });
+        log({ data: `# WARNING: encrypted secrets output file "${encryptedFilename}" already exists; overwriting...`, silent });
     }
     const decryptedEnvContentsBuff = (0, fs_1.readFileSync)(decryptedFilename);
     const parsedEnvContents = dotenv_1.default.parse(decryptedEnvContentsBuff);

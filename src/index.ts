@@ -29,7 +29,7 @@ export type encryptParams = {
     silent?: boolean,
 };
 
-function log({ data, silent }: { data: string, silent?: boolean }): void {
+export function log({ data, silent }: { data: string, silent?: boolean }): void {
     if (!silent) {
         console.log(data);
     }
@@ -44,11 +44,12 @@ function log({ data, silent }: { data: string, silent?: boolean }): void {
  */
 export async function decrypt(params?: decryptParams): Promise<{ [key: string]: string }> {
     let passwd = params && params.passwd;
-    const silent = params && !params.silent;
+    const silent = params && params.silent;
     // if passed params.print=true we don't want to print anything else besides the `export VAR=VAL` lines
     let logOutput = '';
     if (!passwd) {
         if (!process.env.DOTENVENC_PASS) {
+            log({ data: '# WARNING: no env variable DOTENVENC_PASS found; prompting for encryption password', silent });
             passwd = await promptPassword(false);
         } else {
             logOutput += '# Decrypted using env variable DOTENVENC_PASS';
@@ -130,7 +131,7 @@ export async function printExport(params?: decryptParams): Promise<void> {
  */
 export async function encrypt(params?: encryptParams): Promise<Buffer> {
     let passwd = params && params.passwd;
-    const silent = params && !params.silent;
+    const silent = params && params.silent;
     if (!passwd) {
         if (!process.env.DOTENVENC_PASS) {
             log({ data: '# WARNING: no env variable DOTENVENC_PASS found; prompting for encryption password', silent });
@@ -146,7 +147,7 @@ export async function encrypt(params?: encryptParams): Promise<Buffer> {
         throw new Error(`Decrypted secrets input file "${decryptedFilename}" not found`);
     }
     if (existsSync(encryptedFilename)) {
-        log({ data: `# WARNING: encrypted secrets output file "${encryptedFilename}" already exists; overwriting...` });
+        log({ data: `# WARNING: encrypted secrets output file "${encryptedFilename}" already exists; overwriting...`, silent });
     }
     const decryptedEnvContentsBuff = readFileSync(decryptedFilename);
     const parsedEnvContents = dotenv.parse(decryptedEnvContentsBuff);

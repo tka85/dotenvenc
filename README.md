@@ -33,7 +33,7 @@ And are you using [`dotenv`](https://www.npmjs.com/package/dotenv) to expose tho
 
 Add `.env` in your `.gitignore` so your unencrypted secrets are guaranteed to never get committed in your codebase.
 
-## New feature in v5.4.0
+## New feature in v5.4.1
 
 You can run commands in silent mode passing `-s` or `--silent`. In this case they will not print any informative or warning messages. Only the expected output (decrypted data) and errors.
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { encrypt, decrypt, DEFAULT_DECRYPTED_FILE, DEFAULT_ENCRYPTED_FILE, printExport, DEFAULT_ENCRYPTED_FILE_READABLE } from './index';
+import { encrypt, decrypt, DEFAULT_DECRYPTED_FILE, DEFAULT_ENCRYPTED_FILE, printExport, DEFAULT_ENCRYPTED_FILE_READABLE, log } from './index';
 
 const args = require('minimist')(process.argv.slice(2), {
     boolean: ['e', 'r', 'd', 'h'],
@@ -77,12 +77,12 @@ function printHelp(errorMsg?: string) {
     } else {
         let passwd;
         if (args.d) {
-            await decrypt({ passwd, encryptedFile: args.i, print: true });
+            await decrypt({ passwd, encryptedFile: args.i, print: true, silent: args.s });
         } else if (args.e) {
-            await encrypt({ passwd, decryptedFile: args.i, encryptedFile: args.o, includeReadable: args.r });
-            console.log(`Saved encrypted file: ${args.o ?? DEFAULT_ENCRYPTED_FILE}`)
+            await encrypt({ passwd, decryptedFile: args.i, encryptedFile: args.o, includeReadable: args.r, silent: args.s });
+            log({ data: `Saved encrypted file: ${args.o ?? DEFAULT_ENCRYPTED_FILE}`, silent: args.s });
             if (args.r) {
-                console.log(`And additionally saved semi-encrypted file: ${args.o ?? DEFAULT_ENCRYPTED_FILE}.readable`)
+                log({ data: `And additionally saved semi-encrypted file: ${args.o ?? DEFAULT_ENCRYPTED_FILE}.readable`, silent: args.s });
             }
         } else if (args.x) {
             await printExport({ passwd, encryptedFile: args.i });

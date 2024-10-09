@@ -16,6 +16,10 @@ export type encryptParams = {
     includeReadable?: boolean;
     silent?: boolean;
 };
+export declare function log({ data, silent }: {
+    data: string;
+    silent?: boolean;
+}): void;
 /**
  * Read encrypted env file and either print it on console or populate process.env from it
  * @param     {String}    passwd            the password for decrypting the encrypted .env.enc (memory only;no disk)
