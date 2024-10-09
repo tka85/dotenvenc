@@ -17,6 +17,11 @@ const ALGOR = 'aes-256-ctr';
 const IV_LENGTH = 16;
 const MAX_KEY_LENGTH = 32;
 const BUFFER_PADDING = Buffer.alloc(MAX_KEY_LENGTH); // key used in createCipheriv()/createDecipheriv() buffer needs to be 32 bytes
+function log({ data, silent }) {
+    if (!silent) {
+        console.log(data);
+    }
+}
 /**
  * Read encrypted env file and either print it on console or populate process.env from it
  * @param     {String}    passwd            the password for decrypting the encrypted .env.enc (memory only;no disk)
@@ -26,6 +31,7 @@ const BUFFER_PADDING = Buffer.alloc(MAX_KEY_LENGTH); // key used in createCipher
  */
 async function decrypt(params) {
     let passwd = params && params.passwd;
+    const silent = params && !params.silent;
     // if passed params.print=true we don't want to print anything else besides the `export VAR=VAL` lines
     let logOutput = '';
     if (!passwd) {
@@ -56,12 +62,12 @@ async function decrypt(params) {
     if (params && params.print) {
         for (const prop in parsedEnv) {
             if (parsedEnv.hasOwnProperty(prop)) {
-                console.log(`${prop}=${parsedEnv[prop].replace(/"/g, '\\"')}`);
+                log({ data: `${prop}=${parsedEnv[prop].replace(/"/g, '\\"')}` });
             }
         }
     }
     else if (logOutput) {
-        console.log(logOutput);
+        log({ data: logOutput, silent });
     }
     return parsedEnv;
 }
@@ -100,7 +106,7 @@ async function printExport(params) {
     }
     for (const prop in parsedEnv) {
         if (parsedEnv.hasOwnProperty(prop)) {
-            console.log(`export ${prop}="${parsedEnv[prop].replace(/"/g, '\\"')}";`);
+            log({ data: `export ${prop}="${parsedEnv[prop].replace(/"/g, '\\"')}";` });
         }
     }
 }
@@ -114,13 +120,14 @@ exports.printExport = printExport;
  */
 async function encrypt(params) {
     let passwd = params && params.passwd;
+    const silent = params && !params.silent;
     if (!passwd) {
         if (!process.env.DOTENVENC_PASS) {
-            console.log('# No env variable DOTENVENC_PASS found; prompting for encryption password');
+            log({ data: '# WARNING: no env variable DOTENVENC_PASS found; prompting for encryption password', silent });
             passwd = await promptPassword(true);
         }
         else {
-            console.log('# Encrypting using env variable DOTENVENC_PASS');
+            log({ data: '# Encrypting using env variable DOTENVENC_PASS', silent });
             passwd = process.env.DOTENVENC_PASS;
         }
     }
@@ -130,7 +137,7 @@ async function encrypt(params) {
         throw new Error(`Decrypted secrets input file "${decryptedFilename}" not found`);
     }
     if ((0, fs_1.existsSync)(encryptedFilename)) {
-        console.log(`# Encrypted secrets output file "${encryptedFilename}" already exists; overwriting...`);
+        log({ data: `# WARNING: encrypted secrets output file "${encryptedFilename}" already exists; overwriting...` });
     }
     const decryptedEnvContentsBuff = (0, fs_1.readFileSync)(decryptedFilename);
     const parsedEnvContents = dotenv_1.default.parse(decryptedEnvContentsBuff);

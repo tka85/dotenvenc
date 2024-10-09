@@ -33,6 +33,10 @@ And are you using [`dotenv`](https://www.npmjs.com/package/dotenv) to expose tho
 
 Add `.env` in your `.gitignore` so your unencrypted secrets are guaranteed to never get committed in your codebase.
 
+## New feature in v5.4.0
+
+You can run commands in silent mode passing `-s` or `--silent`. In this case they will not print any informative or warning messages. Only the expected output (decrypted data) and errors.
+
 ## New feature in v5.2.0
 
 Each time you encrypt your `.env` now you select (`-r` parameter) to get additionally to the `.env.enc` also a `.env.enc.readable` file (or if you are using a custom env file, the same named with a `.enc.readable` suffix). This extra `.readable` file contains the variable names in human readable form, and the values as HMAC digests. How is that useful? It serves so you can see each time you re-generate the encrypted `.env.enc`, which entreis have been changed.

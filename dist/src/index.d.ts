@@ -7,12 +7,14 @@ export type decryptParams = {
     passwd?: string;
     encryptedFile?: string;
     print?: boolean;
+    silent?: boolean;
 };
 export type encryptParams = {
     passwd: string;
     decryptedFile?: string;
     encryptedFile?: string;
     includeReadable?: boolean;
+    silent?: boolean;
 };
 /**
  * Read encrypted env file and either print it on console or populate process.env from it

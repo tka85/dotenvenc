@@ -40,6 +40,7 @@ function printHelp(errorMsg) {
     -o, --output     [for encrypting only] the output file (with absolute path); this is the resulting encrypted file (default is "${index_1.DEFAULT_ENCRYPTED_FILE}")
     -x, --export     to dump as "export" statements the contents of an encrypted .env.enc file
     -r, --readable   to also add a .env.enc.readable when encrypting a .env which will contain have only the values encrypted
+    -s, --silent     do not print informative messages; only errors and warnings
     -h, --help       print this help
 
 * Encryption examples:
