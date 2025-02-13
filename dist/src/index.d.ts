@@ -46,4 +46,4 @@ export declare function printExport(params?: decryptParams): Promise<void>;
  */
 export declare function encrypt(params?: encryptParams): Promise<Buffer>;
 export declare function encryptValuesOnly(encryptedFilename: string, passwd: string, parsedEnvContents: DotenvParseOutput): void;
-export declare function promptPassword(askConfirmation: boolean): Promise<string>;
+export declare function promptPassword(askConfirmation: boolean, silent: boolean): Promise<string>;

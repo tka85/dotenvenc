@@ -44,13 +44,13 @@ export function log({ data, silent }: { data: string, silent?: boolean }): void 
  */
 export async function decrypt(params?: decryptParams): Promise<{ [key: string]: string }> {
     let passwd = params && params.passwd;
-    const silent = params && params.silent;
+    const silent = params && params.silent || false;
     // if passed params.print=true we don't want to print anything else besides the `export VAR=VAL` lines
     let logOutput = '';
     if (!passwd) {
         if (!process.env.DOTENVENC_PASS) {
             log({ data: '# WARNING: no env variable DOTENVENC_PASS found; prompting for encryption password', silent });
-            passwd = await promptPassword(false);
+            passwd = await promptPassword(false, silent);
         } else {
             logOutput += '# Decrypted using env variable DOTENVENC_PASS';
             passwd = process.env.DOTENVENC_PASS;
@@ -92,9 +92,10 @@ export async function decrypt(params?: decryptParams): Promise<{ [key: string]: 
  */
 export async function printExport(params?: decryptParams): Promise<void> {
     let passwd = params && params.passwd;
+    const silent = params && params.silent || false;
     if (!passwd) {
         if (!process.env.DOTENVENC_PASS) {
-            passwd = await promptPassword(false);
+            passwd = await promptPassword(false, silent);
         } else {
             passwd = process.env.DOTENVENC_PASS;
         }
@@ -131,11 +132,11 @@ export async function printExport(params?: decryptParams): Promise<void> {
  */
 export async function encrypt(params?: encryptParams): Promise<Buffer> {
     let passwd = params && params.passwd;
-    const silent = params && params.silent;
+    const silent = params && params.silent || false;
     if (!passwd) {
         if (!process.env.DOTENVENC_PASS) {
             log({ data: '# WARNING: no env variable DOTENVENC_PASS found; prompting for encryption password', silent });
-            passwd = await promptPassword(true);
+            passwd = await promptPassword(true, silent);
         } else {
             log({ data: '# Encrypting using env variable DOTENVENC_PASS', silent });
             passwd = process.env.DOTENVENC_PASS;
@@ -173,17 +174,17 @@ export function encryptValuesOnly(encryptedFilename: string, passwd: string, par
     writeFileSync(encryptedValuesOnlyFilename, JSON.stringify(encryptedValuesOnly, null, 2));
 }
 
-export async function promptPassword(askConfirmation: boolean): Promise<string> {
+export async function promptPassword(askConfirmation: boolean, silent: boolean): Promise<string> {
     const { passwd } = await prompts({
         type: 'password',
         name: 'passwd',
-        message: 'Type password:'
+        message: silent ? '' : 'Type password:'
     });
     if (askConfirmation) {
         const { confirmPasswd } = await prompts({
             type: 'password',
             name: 'confirmPasswd',
-            message: 'Confirm password:'
+            message: silent ? '' : 'Confirm password:'
         });
         if (passwd !== confirmPasswd) {
             throw new Error('Password did not match. Exiting.');

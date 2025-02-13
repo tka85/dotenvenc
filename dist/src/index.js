@@ -32,13 +32,13 @@ exports.log = log;
  */
 async function decrypt(params) {
     let passwd = params && params.passwd;
-    const silent = params && params.silent;
+    const silent = params && params.silent || false;
     // if passed params.print=true we don't want to print anything else besides the `export VAR=VAL` lines
     let logOutput = '';
     if (!passwd) {
         if (!process.env.DOTENVENC_PASS) {
             log({ data: '# WARNING: no env variable DOTENVENC_PASS found; prompting for encryption password', silent });
-            passwd = await promptPassword(false);
+            passwd = await promptPassword(false, silent);
         }
         else {
             logOutput += '# Decrypted using env variable DOTENVENC_PASS';
@@ -82,9 +82,10 @@ exports.decrypt = decrypt;
  */
 async function printExport(params) {
     let passwd = params && params.passwd;
+    const silent = params && params.silent || false;
     if (!passwd) {
         if (!process.env.DOTENVENC_PASS) {
-            passwd = await promptPassword(false);
+            passwd = await promptPassword(false, silent);
         }
         else {
             passwd = process.env.DOTENVENC_PASS;
@@ -122,11 +123,11 @@ exports.printExport = printExport;
  */
 async function encrypt(params) {
     let passwd = params && params.passwd;
-    const silent = params && params.silent;
+    const silent = params && params.silent || false;
     if (!passwd) {
         if (!process.env.DOTENVENC_PASS) {
             log({ data: '# WARNING: no env variable DOTENVENC_PASS found; prompting for encryption password', silent });
-            passwd = await promptPassword(true);
+            passwd = await promptPassword(true, silent);
         }
         else {
             log({ data: '# Encrypting using env variable DOTENVENC_PASS', silent });
@@ -165,17 +166,17 @@ function encryptValuesOnly(encryptedFilename, passwd, parsedEnvContents) {
     (0, fs_1.writeFileSync)(encryptedValuesOnlyFilename, JSON.stringify(encryptedValuesOnly, null, 2));
 }
 exports.encryptValuesOnly = encryptValuesOnly;
-async function promptPassword(askConfirmation) {
+async function promptPassword(askConfirmation, silent) {
     const { passwd } = await (0, prompts_1.default)({
         type: 'password',
         name: 'passwd',
-        message: 'Type password:'
+        message: silent ? '' : 'Type password:'
     });
     if (askConfirmation) {
         const { confirmPasswd } = await (0, prompts_1.default)({
             type: 'password',
             name: 'confirmPasswd',
-            message: 'Confirm password:'
+            message: silent ? '' : 'Confirm password:'
         });
         if (passwd !== confirmPasswd) {
             throw new Error('Password did not match. Exiting.');

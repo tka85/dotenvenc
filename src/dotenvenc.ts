@@ -85,7 +85,7 @@ function printHelp(errorMsg?: string) {
                 log({ data: `And additionally saved semi-encrypted file: ${args.o ?? DEFAULT_ENCRYPTED_FILE}.readable`, silent: args.s });
             }
         } else if (args.x) {
-            await printExport({ passwd, encryptedFile: args.i });
+            await printExport({ passwd, encryptedFile: args.i, silent: args.s });
         } else {
             printHelp('Missing either -e to encrypt or -d to decrypt');
         }

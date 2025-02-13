@@ -86,7 +86,7 @@ function printHelp(errorMsg) {
             }
         }
         else if (args.x) {
-            await (0, index_1.printExport)({ passwd, encryptedFile: args.i });
+            await (0, index_1.printExport)({ passwd, encryptedFile: args.i, silent: args.s });
         }
         else {
             printHelp('Missing either -e to encrypt or -d to decrypt');
