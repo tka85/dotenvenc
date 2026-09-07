@@ -37,6 +37,7 @@ const CUSTOM_ENCRYPTED_FILE_READABLE = './.env.enc.custom.readable';
 const rewire = require("rewire");
 const dotenvenc = rewire('../src/index');
 const fs_1 = require("fs");
+const child_process_1 = require("child_process");
 const chai_1 = require("chai");
 const sinon = __importStar(require("sinon"));
 const chai_2 = __importDefault(require("chai"));
@@ -357,6 +358,42 @@ value`);
         (0, chai_1.expect)(consoleLogSpy.getCall(6).args[0]).to.equal(`export KAPPA="multi
 line
 value";`);
+    });
+});
+describe('cli', () => {
+    const CLI_ENCRYPTED_FILE = './.env.enc.cli';
+    // Run the CLI the way a user does, straight from source, so argument parsing
+    // is exercised end to end rather than re-declared in the test.
+    function runCli(cliArgs) {
+        return (0, child_process_1.execFileSync)(process.execPath, ['-r', 'ts-node/register', 'src/dotenvenc.ts', ...cliArgs], {
+            encoding: 'utf8',
+            env: { ...process.env, DOTENVENC_PASS: ENC_PASSWD },
+        });
+    }
+    afterEach(() => {
+        removeFile(CLI_ENCRYPTED_FILE);
+        removeFile(`${CLI_ENCRYPTED_FILE}.readable`);
+    });
+    it('should print informative messages when neither -s nor --silent is passed', () => {
+        const output = runCli(['-e', '-i', TEST_SAMPLE_DECRYPTED_FILE, '-o', CLI_ENCRYPTED_FILE]);
+        (0, chai_1.expect)(output).to.contain('Encrypting using env variable DOTENVENC_PASS');
+        (0, chai_1.expect)(output).to.contain('Saved encrypted file');
+    });
+    it('should suppress informative messages with -s', () => {
+        (0, chai_1.expect)(runCli(['-e', '-i', TEST_SAMPLE_DECRYPTED_FILE, '-o', CLI_ENCRYPTED_FILE, '-s'])).to.equal('');
+    });
+    it('should suppress informative messages with --silent', () => {
+        (0, chai_1.expect)(runCli(['-e', '-i', TEST_SAMPLE_DECRYPTED_FILE, '-o', CLI_ENCRYPTED_FILE, '--silent'])).to.equal('');
+    });
+    it('should treat -s as a flag rather than consuming the next argument', () => {
+        (0, chai_1.expect)(runCli(['-e', '-s', '-i', TEST_SAMPLE_DECRYPTED_FILE, '-o', CLI_ENCRYPTED_FILE])).to.equal('');
+        (0, chai_1.expect)((0, fs_1.existsSync)(CLI_ENCRYPTED_FILE)).to.equal(true);
+    });
+    it('should round-trip through the CLI: -e then -d prints the secrets', () => {
+        runCli(['-e', '-i', TEST_SAMPLE_DECRYPTED_FILE, '-o', CLI_ENCRYPTED_FILE, '--silent']);
+        const output = runCli(['-d', '-i', CLI_ENCRYPTED_FILE, '--silent']);
+        (0, chai_1.expect)(output).to.contain('ALPHA=bar');
+        (0, chai_1.expect)(output).to.contain('GAMMA=1234');
     });
 });
 //# sourceMappingURL=dotenvenc.spec.js.map

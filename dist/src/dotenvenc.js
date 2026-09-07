@@ -3,7 +3,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const index_1 = require("./index");
 const args = require('minimist')(process.argv.slice(2), {
-    boolean: ['e', 'r', 'd', 'h'],
+    boolean: ['e', 'r', 'd', 'h', 's', 'x'],
     string: ['i', 'o'],
     alias: {
         e: 'encrypt',
@@ -12,6 +12,7 @@ const args = require('minimist')(process.argv.slice(2), {
         o: 'output',
         x: 'export',
         r: 'readable',
+        s: 'silent',
         h: 'help',
     }
 });

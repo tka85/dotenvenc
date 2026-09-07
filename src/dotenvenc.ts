@@ -2,7 +2,7 @@
 import { encrypt, decrypt, DEFAULT_DECRYPTED_FILE, DEFAULT_ENCRYPTED_FILE, printExport, DEFAULT_ENCRYPTED_FILE_READABLE, log } from './index';
 
 const args = require('minimist')(process.argv.slice(2), {
-    boolean: ['e', 'r', 'd', 'h'],
+    boolean: ['e', 'r', 'd', 'h', 's', 'x'],
     string: ['i', 'o'],
     alias: {
         e: 'encrypt',
@@ -11,6 +11,7 @@ const args = require('minimist')(process.argv.slice(2), {
         o: 'output',
         x: 'export',
         r: 'readable',
+        s: 'silent',
         h: 'help',
     }
 });
