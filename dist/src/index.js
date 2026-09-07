@@ -32,12 +32,32 @@ const FORMATS = {
 exports.CURRENT_FORMAT_VERSION = 'v2';
 // HKDF label separating the .readable digest key from the file encryption key
 const READABLE_KEY_INFO = 'dotenvenc:readable-digest';
+const MIN_PASSWORD_LENGTH = 8;
 function log({ data, silent }) {
     if (!silent) {
         console.log(data);
     }
 }
 exports.log = log;
+/**
+ * Check that a resolved password can actually protect anything.
+ * An empty password is always a mistake: it used to produce a key of 32 zero bytes,
+ * so the file looked encrypted while being readable by anyone. A length floor is
+ * applied when creating a file, but not when opening one, so a file is never
+ * unopenable just because the floor was raised.
+ * @param     {String}    passwd          the resolved password
+ * @param     {Boolean}   forEncryption   whether this password is about to create a file
+ * @returns   {String}                    the same password, once it is known to be usable
+ */
+function validatePassword(passwd, forEncryption) {
+    if (passwd === undefined || passwd === '') {
+        throw new Error('No password supplied; refusing to continue with an empty password');
+    }
+    if (forEncryption && passwd.length < MIN_PASSWORD_LENGTH) {
+        throw new Error(`Password must be at least ${MIN_PASSWORD_LENGTH} characters long (got ${passwd.length})`);
+    }
+    return passwd;
+}
 /**
  * Stretch the password into the 32 byte key that createCipheriv()/createDecipheriv() require.
  * scrypt is deliberately slow and memory-hard, so guessing the password costs an
@@ -176,6 +196,7 @@ async function decrypt(params) {
             passwd = process.env.DOTENVENC_PASS;
         }
     }
+    passwd = validatePassword(passwd, false);
     const encryptedFile = (params && params.encryptedFile) || exports.DEFAULT_ENCRYPTED_FILE;
     const parsedEnv = await decryptFile(encryptedFile, passwd);
     Object.assign(process.env, parsedEnv);
@@ -214,6 +235,7 @@ async function printExport(params) {
             passwd = process.env.DOTENVENC_PASS;
         }
     }
+    passwd = validatePassword(passwd, false);
     const encryptedFile = (params && params.encryptedFile) || exports.DEFAULT_ENCRYPTED_FILE;
     const parsedEnv = await decryptFile(encryptedFile, passwd);
     Object.assign(process.env, parsedEnv);
@@ -250,6 +272,7 @@ async function encrypt(params) {
             passwd = process.env.DOTENVENC_PASS;
         }
     }
+    passwd = validatePassword(passwd, true);
     const decryptedFilename = (params && params.decryptedFile) || exports.DEFAULT_DECRYPTED_FILE;
     const encryptedFilename = (params && params.encryptedFile) || exports.DEFAULT_ENCRYPTED_FILE;
     if (!(0, fs_1.existsSync)(decryptedFilename)) {
@@ -327,14 +350,26 @@ async function promptPassword(askConfirmation, silent) {
     const { passwd } = await (0, prompts_1.default)({
         type: 'password',
         name: 'passwd',
-        message: silent ? '' : 'Type password:'
+        message: silent ? '' : 'Type password:',
+        // only applied when creating a file; opening one must not be blocked by the floor
+        validate: askConfirmation
+            ? (value) => value.length >= MIN_PASSWORD_LENGTH || `Password must be at least ${MIN_PASSWORD_LENGTH} characters long`
+            : undefined,
     });
+    // prompts resolves to {} when the user aborts with Ctrl+C, which used to surface
+    // as "Buffer.from(undefined)" from deep inside the crypto path
+    if (passwd === undefined) {
+        throw new Error('Password entry cancelled');
+    }
     if (askConfirmation) {
         const { confirmPasswd } = await (0, prompts_1.default)({
             type: 'password',
             name: 'confirmPasswd',
             message: silent ? '' : 'Confirm password:'
         });
+        if (confirmPasswd === undefined) {
+            throw new Error('Password entry cancelled');
+        }
         if (passwd !== confirmPasswd) {
             throw new Error('Password did not match. Exiting.');
         }

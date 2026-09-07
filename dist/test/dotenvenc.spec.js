@@ -546,4 +546,66 @@ describe('readable digest file', () => {
         (0, chai_1.expect)(second.digests.GAMMA).to.not.equal(first.digests.GAMMA);
     });
 });
+describe('password validation', () => {
+    beforeEach(() => {
+        delete process.env.DOTENVENC_PASS;
+        removeFile(dotenvenc.DEFAULT_ENCRYPTED_FILE);
+        (0, fs_1.writeFileSync)(dotenvenc.DEFAULT_DECRYPTED_FILE, (0, fs_1.readFileSync)(TEST_SAMPLE_DECRYPTED_FILE));
+        (0, fs_1.writeFileSync)(dotenvenc.DEFAULT_ENCRYPTED_FILE, (0, fs_1.readFileSync)(TEST_SAMPLE_ENCRYPTED_FILE));
+    });
+    afterEach(() => {
+        sinon.restore();
+        removeFile(dotenvenc.DEFAULT_DECRYPTED_FILE);
+        removeFile(dotenvenc.DEFAULT_ENCRYPTED_FILE);
+        removeFile(dotenvenc.DEFAULT_ENCRYPTED_FILE_READABLE);
+    });
+    it('should refuse to encrypt with a password below the minimum length', async () => {
+        await (0, chai_1.expect)(dotenvenc.encrypt({ passwd: 'short12' })).to.be.rejectedWith(/at least 8 characters long \(got 7\)/);
+    });
+    it('should accept a password at exactly the minimum length', async () => {
+        await dotenvenc.encrypt({ passwd: '12345678', silent: true });
+        (0, chai_1.expect)(await dotenvenc.decrypt({ passwd: '12345678' })).to.have.property('ALPHA', 'bar');
+    });
+    it('should not apply the length floor when decrypting, only when encrypting', async () => {
+        // a short password must fail as a wrong password, not be rejected up front,
+        // so raising the floor can never make an existing file unopenable
+        await (0, chai_1.expect)(dotenvenc.decrypt({ passwd: 'abc' })).to.be.rejectedWith(/wrong password/);
+    });
+    it('should refuse an empty password returned from the prompt when encrypting', async () => {
+        const revert = dotenvenc.__set__('promptPassword', async () => Promise.resolve(''));
+        try {
+            await (0, chai_1.expect)(dotenvenc.encrypt({ passwd: '' })).to.be.rejectedWith(/refusing to continue with an empty password/);
+        }
+        finally {
+            revert();
+        }
+    });
+    it('should refuse an empty password returned from the prompt when decrypting', async () => {
+        const revert = dotenvenc.__set__('promptPassword', async () => Promise.resolve(''));
+        try {
+            await (0, chai_1.expect)(dotenvenc.decrypt({ passwd: '' })).to.be.rejectedWith(/refusing to continue with an empty password/);
+        }
+        finally {
+            revert();
+        }
+    });
+    it('should exit with an error when the password prompt is cancelled with Ctrl+C', async () => {
+        const env = { ...process.env };
+        delete env.DOTENVENC_PASS;
+        const child = (0, child_process_1.spawn)(process.execPath, ['-r', 'ts-node/register', 'src/dotenvenc.ts', '-e', '-i', TEST_SAMPLE_DECRYPTED_FILE, '-o', CUSTOM_ENCRYPTED_FILE], { env, stdio: ['pipe', 'pipe', 'pipe'] });
+        let stderr = '';
+        child.stderr.on('data', (chunk) => { stderr += chunk; });
+        const exitCode = await new Promise((resolve) => {
+            // give the prompt time to render, then send the Ctrl+C byte
+            setTimeout(() => child.stdin.write(Buffer.from([0x03])), 1500);
+            const killTimer = setTimeout(() => child.kill(), 20000);
+            child.on('close', (code) => { clearTimeout(killTimer); resolve(code); });
+        });
+        // before this change the confirmation prompt was still shown after the abort
+        // and the process hung there forever
+        (0, chai_1.expect)(exitCode, 'process exited rather than hanging').to.equal(1);
+        (0, chai_1.expect)(stderr).to.match(/Password entry cancelled/);
+        (0, chai_1.expect)((0, fs_1.existsSync)(CUSTOM_ENCRYPTED_FILE)).to.equal(false);
+    });
+});
 //# sourceMappingURL=dotenvenc.spec.js.map

@@ -37,6 +37,7 @@ const FORMATS: { [version: string]: formatSpec } = {
 export const CURRENT_FORMAT_VERSION = 'v2';
 // HKDF label separating the .readable digest key from the file encryption key
 const READABLE_KEY_INFO = 'dotenvenc:readable-digest';
+const MIN_PASSWORD_LENGTH = 8;
 
 export type decryptParams = {
     passwd?: string, // default is process.env.DOTENVENC_PASS
@@ -57,6 +58,26 @@ export function log({ data, silent }: { data: string, silent?: boolean }): void 
     if (!silent) {
         console.log(data);
     }
+}
+
+/**
+ * Check that a resolved password can actually protect anything.
+ * An empty password is always a mistake: it used to produce a key of 32 zero bytes,
+ * so the file looked encrypted while being readable by anyone. A length floor is
+ * applied when creating a file, but not when opening one, so a file is never
+ * unopenable just because the floor was raised.
+ * @param     {String}    passwd          the resolved password
+ * @param     {Boolean}   forEncryption   whether this password is about to create a file
+ * @returns   {String}                    the same password, once it is known to be usable
+ */
+function validatePassword(passwd: string | undefined, forEncryption: boolean): string {
+    if (passwd === undefined || passwd === '') {
+        throw new Error('No password supplied; refusing to continue with an empty password');
+    }
+    if (forEncryption && passwd.length < MIN_PASSWORD_LENGTH) {
+        throw new Error(`Password must be at least ${MIN_PASSWORD_LENGTH} characters long (got ${passwd.length})`);
+    }
+    return passwd;
 }
 
 /**
@@ -200,6 +221,7 @@ export async function decrypt(params?: decryptParams): Promise<{ [key: string]: 
             passwd = process.env.DOTENVENC_PASS;
         }
     }
+    passwd = validatePassword(passwd, false);
     const encryptedFile = (params && params.encryptedFile) || DEFAULT_ENCRYPTED_FILE;
     const parsedEnv = await decryptFile(encryptedFile, passwd);
     Object.assign(process.env, parsedEnv);
@@ -236,6 +258,7 @@ export async function printExport(params?: decryptParams): Promise<void> {
             passwd = process.env.DOTENVENC_PASS;
         }
     }
+    passwd = validatePassword(passwd, false);
     const encryptedFile = (params && params.encryptedFile) || DEFAULT_ENCRYPTED_FILE;
     const parsedEnv = await decryptFile(encryptedFile, passwd);
     Object.assign(process.env, parsedEnv);
@@ -271,6 +294,7 @@ export async function encrypt(params?: encryptParams): Promise<Buffer> {
             passwd = process.env.DOTENVENC_PASS;
         }
     }
+    passwd = validatePassword(passwd, true);
     const decryptedFilename = (params && params.decryptedFile) || DEFAULT_DECRYPTED_FILE;
     const encryptedFilename = (params && params.encryptedFile) || DEFAULT_ENCRYPTED_FILE;
     if (!existsSync(decryptedFilename)) {
@@ -348,14 +372,26 @@ export async function promptPassword(askConfirmation: boolean, silent: boolean):
     const { passwd } = await prompts({
         type: 'password',
         name: 'passwd',
-        message: silent ? '' : 'Type password:'
+        message: silent ? '' : 'Type password:',
+        // only applied when creating a file; opening one must not be blocked by the floor
+        validate: askConfirmation
+            ? (value: string) => value.length >= MIN_PASSWORD_LENGTH || `Password must be at least ${MIN_PASSWORD_LENGTH} characters long`
+            : undefined,
     });
+    // prompts resolves to {} when the user aborts with Ctrl+C, which used to surface
+    // as "Buffer.from(undefined)" from deep inside the crypto path
+    if (passwd === undefined) {
+        throw new Error('Password entry cancelled');
+    }
     if (askConfirmation) {
         const { confirmPasswd } = await prompts({
             type: 'password',
             name: 'confirmPasswd',
             message: silent ? '' : 'Confirm password:'
         });
+        if (confirmPasswd === undefined) {
+            throw new Error('Password entry cancelled');
+        }
         if (passwd !== confirmPasswd) {
             throw new Error('Password did not match. Exiting.');
         }
