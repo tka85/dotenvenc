@@ -47,7 +47,7 @@ export type decryptParams = {
 };
 
 export type encryptParams = {
-    passwd: string, // default is process.env.DOTENVENC_PASS
+    passwd?: string, // default is process.env.DOTENVENC_PASS
     decryptedFile?: string, // default is ./.env
     encryptedFile?: string, // default is ./.env.enc
     includeReadable?: boolean, // default is false
@@ -241,7 +241,7 @@ export async function decrypt(params?: decryptParams): Promise<{ [key: string]: 
     Object.assign(process.env, parsedEnv);
     if (params && params.print) {
         for (const prop in parsedEnv) {
-            if (parsedEnv.hasOwnProperty(prop)) {
+            if (Object.prototype.hasOwnProperty.call(parsedEnv, prop)) {
                 const quoted = dotenvQuote(parsedEnv[prop]);
                 if (quoted === null) {
                     console.error(`# WARNING: skipping "${prop}", its value mixes quote characters that this .env format cannot represent`);
@@ -277,7 +277,7 @@ export async function printExport(params?: decryptParams): Promise<void> {
     const parsedEnv = await decryptFile(encryptedFile, passwd);
     Object.assign(process.env, parsedEnv);
     for (const prop in parsedEnv) {
-        if (parsedEnv.hasOwnProperty(prop)) {
+        if (Object.prototype.hasOwnProperty.call(parsedEnv, prop)) {
             if (!SHELL_IDENTIFIER_RE.test(prop)) {
                 // Warn rather than emit; `export A.B=...` is a syntax error that would
                 // abort the caller's `eval` and take every following variable with it.

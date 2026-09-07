@@ -216,7 +216,7 @@ async function decrypt(params) {
     Object.assign(process.env, parsedEnv);
     if (params && params.print) {
         for (const prop in parsedEnv) {
-            if (parsedEnv.hasOwnProperty(prop)) {
+            if (Object.prototype.hasOwnProperty.call(parsedEnv, prop)) {
                 const quoted = dotenvQuote(parsedEnv[prop]);
                 if (quoted === null) {
                     console.error(`# WARNING: skipping "${prop}", its value mixes quote characters that this .env format cannot represent`);
@@ -253,7 +253,7 @@ async function printExport(params) {
     const parsedEnv = await decryptFile(encryptedFile, passwd);
     Object.assign(process.env, parsedEnv);
     for (const prop in parsedEnv) {
-        if (parsedEnv.hasOwnProperty(prop)) {
+        if (Object.prototype.hasOwnProperty.call(parsedEnv, prop)) {
             if (!SHELL_IDENTIFIER_RE.test(prop)) {
                 // Warn rather than emit; `export A.B=...` is a syntax error that would
                 // abort the caller's `eval` and take every following variable with it.

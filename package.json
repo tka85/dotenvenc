@@ -13,8 +13,10 @@
   },
   "scripts": {
     "test": "mocha --reporter spec --timeout 100000 --exit",
+    "lint": "eslint src test --ext .ts",
+    "lint:fix": "eslint src test --ext .ts --fix",
     "build": "tsc",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run lint && npm run build"
   },
   "repository": {
     "type": "git",
@@ -46,15 +48,18 @@
     "@tsconfig/node18": "1.0.1",
     "@types/chai": "4.3.4",
     "@types/chai-as-promised": "7.1.5",
+    "@types/minimist": "1.2.5",
     "@types/mocha": "10.0.1",
     "@types/node": "18.15.9",
     "@types/rewire": "2.5.28",
     "@types/sinon": "10.0.13",
+    "@typescript-eslint/eslint-plugin": "5.62.0",
+    "@typescript-eslint/parser": "5.62.0",
     "chai": "4.3.7",
     "chai-as-promised": "7.1.1",
     "eslint": "8.36.0",
     "eslint-plugin-import": "2.27.5",
-    "mocha": "10.2.0",
+    "mocha": "12.0.0",
     "rewire": "6.0.0",
     "sinon": "15.0.3",
     "ts-node": "10.9.1",

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
+import minimist from 'minimist';
 import { encrypt, decrypt, DEFAULT_DECRYPTED_FILE, DEFAULT_ENCRYPTED_FILE, printExport, DEFAULT_ENCRYPTED_FILE_READABLE, logInfo } from './index';
 
-const args = require('minimist')(process.argv.slice(2), {
+const args = minimist(process.argv.slice(2), {
     boolean: ['e', 'r', 'd', 'h', 's', 'x'],
     string: ['i', 'o'],
     alias: {
@@ -75,23 +76,30 @@ function printHelp(errorMsg?: string) {
     process.exit(errorMsg ? 1 : 0);
 }
 
-(async () => {
+async function main(): Promise<void> {
     if (args.h) {
         printHelp();
-    } else {
-        let passwd;
-        if (args.d) {
-            await decrypt({ passwd, encryptedFile: args.i, print: true, silent: args.s });
-        } else if (args.e) {
-            await encrypt({ passwd, decryptedFile: args.i, encryptedFile: args.o, includeReadable: args.r, silent: args.s });
-            logInfo({ data: `Saved encrypted file: ${args.o ?? DEFAULT_ENCRYPTED_FILE}`, silent: args.s });
-            if (args.r) {
-                logInfo({ data: `And additionally saved semi-encrypted file: ${args.o ?? DEFAULT_ENCRYPTED_FILE}.readable`, silent: args.s });
-            }
-        } else if (args.x) {
-            await printExport({ passwd, encryptedFile: args.i, silent: args.s });
-        } else {
-            printHelp('Missing either -e to encrypt or -d to decrypt');
+    } else if (args.d) {
+        await decrypt({ encryptedFile: args.i, print: true, silent: args.s });
+    } else if (args.e) {
+        await encrypt({ decryptedFile: args.i, encryptedFile: args.o, includeReadable: args.r, silent: args.s });
+        logInfo({ data: `Saved encrypted file: ${args.o ?? DEFAULT_ENCRYPTED_FILE}`, silent: args.s });
+        if (args.r) {
+            logInfo({ data: `And additionally saved semi-encrypted file: ${args.o ?? DEFAULT_ENCRYPTED_FILE}.readable`, silent: args.s });
         }
+    } else if (args.x) {
+        await printExport({ encryptedFile: args.i, silent: args.s });
+    } else {
+        printHelp('Missing either -e to encrypt or -d to decrypt');
     }
-})();
+}
+
+main().catch((err: unknown) => {
+    // Expected failures (wrong password, missing file, cancelled prompt) deserve a
+    // one line message, not a stack trace from inside the crypto path.
+    console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    if (process.env.DOTENVENC_DEBUG && err instanceof Error) {
+        console.error(err.stack);
+    }
+    process.exit(1);
+});

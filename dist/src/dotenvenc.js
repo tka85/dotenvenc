@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
+const minimist_1 = __importDefault(require("minimist"));
 const index_1 = require("./index");
-const args = require('minimist')(process.argv.slice(2), {
+const args = (0, minimist_1.default)(process.argv.slice(2), {
     boolean: ['e', 'r', 'd', 'h', 's', 'x'],
     string: ['i', 'o'],
     alias: {
@@ -73,28 +77,34 @@ function printHelp(errorMsg) {
 `);
     process.exit(errorMsg ? 1 : 0);
 }
-(async () => {
+async function main() {
     if (args.h) {
         printHelp();
     }
-    else {
-        let passwd;
-        if (args.d) {
-            await (0, index_1.decrypt)({ passwd, encryptedFile: args.i, print: true, silent: args.s });
-        }
-        else if (args.e) {
-            await (0, index_1.encrypt)({ passwd, decryptedFile: args.i, encryptedFile: args.o, includeReadable: args.r, silent: args.s });
-            (0, index_1.logInfo)({ data: `Saved encrypted file: ${args.o ?? index_1.DEFAULT_ENCRYPTED_FILE}`, silent: args.s });
-            if (args.r) {
-                (0, index_1.logInfo)({ data: `And additionally saved semi-encrypted file: ${args.o ?? index_1.DEFAULT_ENCRYPTED_FILE}.readable`, silent: args.s });
-            }
-        }
-        else if (args.x) {
-            await (0, index_1.printExport)({ passwd, encryptedFile: args.i, silent: args.s });
-        }
-        else {
-            printHelp('Missing either -e to encrypt or -d to decrypt');
+    else if (args.d) {
+        await (0, index_1.decrypt)({ encryptedFile: args.i, print: true, silent: args.s });
+    }
+    else if (args.e) {
+        await (0, index_1.encrypt)({ decryptedFile: args.i, encryptedFile: args.o, includeReadable: args.r, silent: args.s });
+        (0, index_1.logInfo)({ data: `Saved encrypted file: ${args.o ?? index_1.DEFAULT_ENCRYPTED_FILE}`, silent: args.s });
+        if (args.r) {
+            (0, index_1.logInfo)({ data: `And additionally saved semi-encrypted file: ${args.o ?? index_1.DEFAULT_ENCRYPTED_FILE}.readable`, silent: args.s });
         }
     }
-})();
+    else if (args.x) {
+        await (0, index_1.printExport)({ encryptedFile: args.i, silent: args.s });
+    }
+    else {
+        printHelp('Missing either -e to encrypt or -d to decrypt');
+    }
+}
+main().catch((err) => {
+    // Expected failures (wrong password, missing file, cancelled prompt) deserve a
+    // one line message, not a stack trace from inside the crypto path.
+    console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    if (process.env.DOTENVENC_DEBUG && err instanceof Error) {
+        console.error(err.stack);
+    }
+    process.exit(1);
+});
 //# sourceMappingURL=dotenvenc.js.map

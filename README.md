@@ -283,6 +283,9 @@ The values are digests keyed by a scrypt-derived key, not by your password. In v
 -h, --help       print this help
 ```
 
+Set `DOTENVENC_DEBUG=1` to get a full stack trace alongside the error message; without it,
+failures are reported as a single line.
+
 ### Output streams and exit codes
 
 | | stdout | stderr | exit code |
@@ -291,7 +294,7 @@ The values are digests keyed by a scrypt-derived key, not by your password. In v
 | `-e` | nothing | informational messages, warnings | 0 |
 | `-h` | help text | nothing | 0 |
 | wrong invocation | nothing | error + help text | 1 |
-| any failure | nothing | the error | non-zero |
+| any failure | nothing | a one-line `Error: ...` message | 1 |
 
 Only ever the requested secrets go to stdout, so redirecting or capturing stdout is always safe. `-s` silences the informational messages on stderr but never errors or warnings.
 

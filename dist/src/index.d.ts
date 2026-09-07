@@ -11,7 +11,7 @@ export type decryptParams = {
     silent?: boolean;
 };
 export type encryptParams = {
-    passwd: string;
+    passwd?: string;
     decryptedFile?: string;
     encryptedFile?: string;
     includeReadable?: boolean;

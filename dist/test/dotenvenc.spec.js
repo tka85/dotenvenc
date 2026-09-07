@@ -34,18 +34,20 @@ const TEST_SAMPLE_ENCRYPTED_FILE_READABLE = './test/.env.sample.enc.readable';
 const CUSTOM_DECRYPTED_FILE = './.env.custom';
 const CUSTOM_ENCRYPTED_FILE = './.env.enc.custom';
 const CUSTOM_ENCRYPTED_FILE_READABLE = './.env.enc.custom.readable';
-const rewire = require("rewire");
-const dotenvenc = rewire('../src/index');
 const fs_1 = require("fs");
 const child_process_1 = require("child_process");
 const dotenv_1 = require("dotenv");
 const crypto_1 = require("crypto");
-const chai_1 = require("chai");
 const sinon = __importStar(require("sinon"));
-const chai_2 = __importDefault(require("chai"));
+const chai_1 = __importStar(require("chai"));
 const chai_as_promised_1 = __importDefault(require("chai-as-promised"));
 const src_1 = require("../src");
-chai_2.default.use(chai_as_promised_1.default);
+chai_1.default.use(chai_as_promised_1.default);
+// rewire resolves its target relative to module.parent, so it needs a real CommonJS
+// require; an ESM import changes that resolution and breaks the lookup.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const rewire = require('rewire');
+const dotenvenc = rewire('../src/index');
 function removeFile(filename) {
     try {
         (0, fs_1.unlinkSync)(filename);
@@ -75,40 +77,40 @@ describe('encryption', () => {
     });
     it(`should encrypt default decrypted file ${dotenvenc.DEFAULT_DECRYPTED_FILE} into default encrypted file ${dotenvenc.DEFAULT_ENCRYPTED_FILE} without semi-readable '.readable' file generated`, async () => {
         await dotenvenc.encrypt({ passwd: ENC_PASSWD, decryptedFile: dotenvenc.DEFAULT_DECRYPTED_FILE, encryptedFile: dotenvenc.DEFAULT_ENCRYPTED_FILE, includeReadable: false });
-        (0, chai_1.expect)(await dotenvenc.decrypt({ passwd: ENC_PASSWD, encryptedFile: dotenvenc.DEFAULT_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With \"double quotes\" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
+        (0, chai_1.expect)(await dotenvenc.decrypt({ passwd: ENC_PASSWD, encryptedFile: dotenvenc.DEFAULT_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With "double quotes" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
     });
     it(`should encrypt default decrypted file ${dotenvenc.DEFAULT_DECRYPTED_FILE} into default encrypted file ${dotenvenc.DEFAULT_ENCRYPTED_FILE} also with semi-readable '.readable' file generated`, async () => {
         // seed the salt from the fixture so the digests are reproducible
         (0, fs_1.writeFileSync)(src_1.DEFAULT_ENCRYPTED_FILE_READABLE, (0, fs_1.readFileSync)(TEST_SAMPLE_ENCRYPTED_FILE_READABLE));
         await dotenvenc.encrypt({ passwd: ENC_PASSWD, decryptedFile: dotenvenc.DEFAULT_DECRYPTED_FILE, encryptedFile: dotenvenc.DEFAULT_ENCRYPTED_FILE, includeReadable: true });
-        (0, chai_1.expect)(await dotenvenc.decrypt({ passwd: ENC_PASSWD, encryptedFile: dotenvenc.DEFAULT_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With \"double quotes\" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
+        (0, chai_1.expect)(await dotenvenc.decrypt({ passwd: ENC_PASSWD, encryptedFile: dotenvenc.DEFAULT_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With "double quotes" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
         const encryptedFileReadableContents = (0, fs_1.readFileSync)(src_1.DEFAULT_ENCRYPTED_FILE_READABLE, 'utf8');
         const encryptedFileReadableContentsReference = (0, fs_1.readFileSync)(TEST_SAMPLE_ENCRYPTED_FILE_READABLE, 'utf8');
         (0, chai_1.expect)(encryptedFileReadableContents).to.be.equal(encryptedFileReadableContentsReference);
     });
     it(`should encrypt default decrypted file ${dotenvenc.DEFAULT_DECRYPTED_FILE} into custom encrypted file ${CUSTOM_ENCRYPTED_FILE} without semi-readable '.readable' file generated`, async () => {
         await dotenvenc.encrypt({ passwd: ENC_PASSWD, encryptedFile: CUSTOM_ENCRYPTED_FILE, includeReadable: false });
-        (0, chai_1.expect)(await dotenvenc.decrypt({ passwd: ENC_PASSWD, encryptedFile: CUSTOM_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With \"double quotes\" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
+        (0, chai_1.expect)(await dotenvenc.decrypt({ passwd: ENC_PASSWD, encryptedFile: CUSTOM_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With "double quotes" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
     });
     it(`should encrypt default decrypted file ${dotenvenc.DEFAULT_DECRYPTED_FILE} into custom encrypted file ${CUSTOM_ENCRYPTED_FILE} also with semi-readable '.readable' file generated`, async () => {
         (0, fs_1.writeFileSync)(CUSTOM_ENCRYPTED_FILE_READABLE, (0, fs_1.readFileSync)(TEST_SAMPLE_ENCRYPTED_FILE_READABLE));
         await dotenvenc.encrypt({ passwd: ENC_PASSWD, encryptedFile: CUSTOM_ENCRYPTED_FILE, includeReadable: true });
-        (0, chai_1.expect)(await dotenvenc.decrypt({ passwd: ENC_PASSWD, encryptedFile: CUSTOM_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With \"double quotes\" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
+        (0, chai_1.expect)(await dotenvenc.decrypt({ passwd: ENC_PASSWD, encryptedFile: CUSTOM_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With "double quotes" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
         const encryptedFileReadableContents = (0, fs_1.readFileSync)(CUSTOM_ENCRYPTED_FILE_READABLE, 'utf8');
         const encryptedFileReadableContentsReference = (0, fs_1.readFileSync)(TEST_SAMPLE_ENCRYPTED_FILE_READABLE, 'utf8');
         (0, chai_1.expect)(encryptedFileReadableContents).to.be.equal(encryptedFileReadableContentsReference);
     });
     it(`should encrypt custom decrypted file ${CUSTOM_DECRYPTED_FILE} into default encrypted file ${dotenvenc.DEFAULT_ENCRYPTED_FILE} without semi-readable '.readable' file generated`, async () => {
         await dotenvenc.encrypt({ passwd: ENC_PASSWD, decryptedFile: CUSTOM_DECRYPTED_FILE, encryptedFile: CUSTOM_ENCRYPTED_FILE, includeReadable: false });
-        (0, chai_1.expect)(await dotenvenc.decrypt({ passwd: ENC_PASSWD, encryptedFile: CUSTOM_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With \"double quotes\" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
+        (0, chai_1.expect)(await dotenvenc.decrypt({ passwd: ENC_PASSWD, encryptedFile: CUSTOM_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With "double quotes" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
     });
     it(`should encrypt custom decrypted file ${CUSTOM_DECRYPTED_FILE} into default encrypted file ${dotenvenc.DEFAULT_ENCRYPTED_FILE} also with semi-readable '.readable' file generated`, async () => {
         await dotenvenc.encrypt({ passwd: ENC_PASSWD, decryptedFile: CUSTOM_DECRYPTED_FILE, encryptedFile: CUSTOM_ENCRYPTED_FILE, includeReadable: true });
-        (0, chai_1.expect)(await dotenvenc.decrypt({ passwd: ENC_PASSWD, encryptedFile: CUSTOM_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With \"double quotes\" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
+        (0, chai_1.expect)(await dotenvenc.decrypt({ passwd: ENC_PASSWD, encryptedFile: CUSTOM_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With "double quotes" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
     });
     it(`should encrypt custom decrypted file ${CUSTOM_DECRYPTED_FILE} into custom encrypted file ${CUSTOM_ENCRYPTED_FILE}`, async () => {
         await dotenvenc.encrypt({ passwd: ENC_PASSWD, decryptedFile: CUSTOM_DECRYPTED_FILE, encryptedFile: CUSTOM_ENCRYPTED_FILE });
-        (0, chai_1.expect)(await dotenvenc.decrypt({ passwd: ENC_PASSWD, encryptedFile: CUSTOM_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With \"double quotes\" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
+        (0, chai_1.expect)(await dotenvenc.decrypt({ passwd: ENC_PASSWD, encryptedFile: CUSTOM_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With "double quotes" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
     });
     it(`should prompt for password if provided empty password and DOTENVENC_PASS is not set`, async () => {
         const promptPasswordSpy = sinon.spy();
@@ -133,12 +135,12 @@ describe('encryption', () => {
     it(`should encrypt default decrypted file with DOTENVENC_PASS if empty password is provided and DOTENVENC_PASS is set`, async () => {
         process.env.DOTENVENC_PASS = ENC_PASSWD;
         await dotenvenc.encrypt({ passwd: '' });
-        (0, chai_1.expect)(await dotenvenc.decrypt({ passwd: process.env.DOTENVENC_PASS, encryptedFile: dotenvenc.DEFAULT_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With \"double quotes\" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
+        (0, chai_1.expect)(await dotenvenc.decrypt({ passwd: process.env.DOTENVENC_PASS, encryptedFile: dotenvenc.DEFAULT_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With "double quotes" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
     });
     it(`should encrypt default decrypted file with DOTENVENC_PASS if no password is provided and DOTENVENC_PASS is set`, async () => {
         process.env.DOTENVENC_PASS = ENC_PASSWD;
         await dotenvenc.encrypt();
-        (0, chai_1.expect)(await dotenvenc.decrypt({ passwd: process.env.DOTENVENC_PASS, encryptedFile: dotenvenc.DEFAULT_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With \"double quotes\" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
+        (0, chai_1.expect)(await dotenvenc.decrypt({ passwd: process.env.DOTENVENC_PASS, encryptedFile: dotenvenc.DEFAULT_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With "double quotes" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
     });
 });
 describe('decryption', () => {
@@ -161,70 +163,70 @@ describe('decryption', () => {
     });
     it(`should decrypt default encrypted file ${dotenvenc.DEFAULT_ENCRYPTED_FILE} correctly if explicitly passed password`, async () => {
         const data = await dotenvenc.decrypt({ passwd: ENC_PASSWD });
-        (0, chai_1.expect)(data).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With \"double quotes\" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
+        (0, chai_1.expect)(data).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With "double quotes" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
         (0, chai_1.expect)(process.env.ALPHA).to.equal('bar');
         (0, chai_1.expect)(process.env.BETA).to.equal('foo bar');
         (0, chai_1.expect)(process.env.GAMMA).to.equal('1234');
-        (0, chai_1.expect)(process.env.DELTA).to.equal('With \"double quotes\" inside');
+        (0, chai_1.expect)(process.env.DELTA).to.equal('With "double quotes" inside');
         (0, chai_1.expect)(process.env.EPSILON).to.equal('bla');
     });
     it(`should decrypt default encrypted file ${dotenvenc.DEFAULT_ENCRYPTED_FILE} correctly if DOTENVENC_PASS is set`, async () => {
         process.env.DOTENVENC_PASS = ENC_PASSWD;
         const data = await dotenvenc.decrypt();
-        (0, chai_1.expect)(data).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With \"double quotes\" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
+        (0, chai_1.expect)(data).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With "double quotes" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
         (0, chai_1.expect)(process.env.ALPHA).to.equal('bar');
         (0, chai_1.expect)(process.env.BETA).to.equal('foo bar');
         (0, chai_1.expect)(process.env.GAMMA).to.equal('1234');
-        (0, chai_1.expect)(process.env.DELTA).to.equal('With \"double quotes\" inside');
+        (0, chai_1.expect)(process.env.DELTA).to.equal('With "double quotes" inside');
         (0, chai_1.expect)(process.env.EPSILON).to.equal('bla');
     });
     it(`should decrypt custom encrypted file ${CUSTOM_ENCRYPTED_FILE} correctly`, async () => {
         const data = await dotenvenc.decrypt({ passwd: ENC_PASSWD, encryptedFile: CUSTOM_ENCRYPTED_FILE });
-        (0, chai_1.expect)(data).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With \"double quotes\" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
+        (0, chai_1.expect)(data).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With "double quotes" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
         (0, chai_1.expect)(process.env.ALPHA).to.equal('bar');
         (0, chai_1.expect)(process.env.BETA).to.equal('foo bar');
         (0, chai_1.expect)(process.env.GAMMA).to.equal('1234');
-        (0, chai_1.expect)(process.env.DELTA).to.equal('With \"double quotes\" inside');
+        (0, chai_1.expect)(process.env.DELTA).to.equal('With "double quotes" inside');
         (0, chai_1.expect)(process.env.EPSILON).to.equal('bla');
     });
     it(`should decrypt default encrypted file ${dotenvenc.DEFAULT_ENCRYPTED_FILE} if empty password is provided but DOTENVENC_PASS is set`, async () => {
         process.env.DOTENVENC_PASS = ENC_PASSWD;
         const data = await dotenvenc.decrypt({ passwd: '' });
-        (0, chai_1.expect)(data).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With \"double quotes\" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
+        (0, chai_1.expect)(data).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With "double quotes" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
         (0, chai_1.expect)(process.env.ALPHA).to.equal('bar');
         (0, chai_1.expect)(process.env.BETA).to.equal('foo bar');
         (0, chai_1.expect)(process.env.GAMMA).to.equal('1234');
-        (0, chai_1.expect)(process.env.DELTA).to.equal('With \"double quotes\" inside');
+        (0, chai_1.expect)(process.env.DELTA).to.equal('With "double quotes" inside');
         (0, chai_1.expect)(process.env.EPSILON).to.equal('bla');
     });
     it(`should decrypt default encrypted file ${dotenvenc.DEFAULT_ENCRYPTED_FILE} if no password is provided but DOTENVENC_PASS is set`, async () => {
         process.env.DOTENVENC_PASS = ENC_PASSWD;
         const data = await dotenvenc.decrypt();
-        (0, chai_1.expect)(data).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With \"double quotes\" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
+        (0, chai_1.expect)(data).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With "double quotes" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
         (0, chai_1.expect)(process.env.ALPHA).to.equal('bar');
         (0, chai_1.expect)(process.env.BETA).to.equal('foo bar');
         (0, chai_1.expect)(process.env.GAMMA).to.equal('1234');
-        (0, chai_1.expect)(process.env.DELTA).to.equal('With \"double quotes\" inside');
+        (0, chai_1.expect)(process.env.DELTA).to.equal('With "double quotes" inside');
         (0, chai_1.expect)(process.env.EPSILON).to.equal('bla');
     });
     it(`should decrypt custom encrypted file ${CUSTOM_ENCRYPTED_FILE} if empty password is provided but DOTENVENC_PASS is set`, async () => {
         process.env.DOTENVENC_PASS = ENC_PASSWD;
         const data = await dotenvenc.decrypt({ passwd: '', encryptedFile: CUSTOM_ENCRYPTED_FILE });
-        (0, chai_1.expect)(data).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With \"double quotes\" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
+        (0, chai_1.expect)(data).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With "double quotes" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
         (0, chai_1.expect)(process.env.ALPHA).to.equal('bar');
         (0, chai_1.expect)(process.env.BETA).to.equal('foo bar');
         (0, chai_1.expect)(process.env.GAMMA).to.equal('1234');
-        (0, chai_1.expect)(process.env.DELTA).to.equal('With \"double quotes\" inside');
+        (0, chai_1.expect)(process.env.DELTA).to.equal('With "double quotes" inside');
         (0, chai_1.expect)(process.env.EPSILON).to.equal('bla');
     });
     it(`should decrypt custom encrypted file ${CUSTOM_ENCRYPTED_FILE} if no password is provided but DOTENVENC_PASS is set`, async () => {
         process.env.DOTENVENC_PASS = ENC_PASSWD;
         const data = await dotenvenc.decrypt({ encryptedFile: CUSTOM_ENCRYPTED_FILE });
-        (0, chai_1.expect)(data).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With \"double quotes\" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
+        (0, chai_1.expect)(data).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With "double quotes" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
         (0, chai_1.expect)(process.env.ALPHA).to.equal('bar');
         (0, chai_1.expect)(process.env.BETA).to.equal('foo bar');
         (0, chai_1.expect)(process.env.GAMMA).to.equal('1234');
-        (0, chai_1.expect)(process.env.DELTA).to.equal('With \"double quotes\" inside');
+        (0, chai_1.expect)(process.env.DELTA).to.equal('With "double quotes" inside');
         (0, chai_1.expect)(process.env.EPSILON).to.equal('bla');
     });
     it(`should prompt for password if provided empty password and DOTENVENC_PASS is not set`, async () => {
@@ -340,11 +342,11 @@ describe('decryption', () => {
         const consoleLogSpy = sinon.spy(console, 'log');
         process.env.DOTENVENC_PASS = ENC_PASSWD;
         const data = await dotenvenc.decrypt({ print: true });
-        (0, chai_1.expect)(data).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With \"double quotes\" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
+        (0, chai_1.expect)(data).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With "double quotes" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
         (0, chai_1.expect)(process.env.ALPHA).to.equal('bar');
         (0, chai_1.expect)(process.env.BETA).to.equal('foo bar');
         (0, chai_1.expect)(process.env.GAMMA).to.equal('1234');
-        (0, chai_1.expect)(process.env.DELTA).to.equal('With \"double quotes\" inside');
+        (0, chai_1.expect)(process.env.DELTA).to.equal('With "double quotes" inside');
         (0, chai_1.expect)(process.env.DELTA_2).to.equal('With \'single quotes\' inside');
         (0, chai_1.expect)(process.env.EPSILON).to.equal('bla');
         (0, chai_1.expect)(consoleLogSpy.callCount).to.equal(7);
