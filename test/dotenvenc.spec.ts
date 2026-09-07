@@ -479,6 +479,26 @@ describe('cli', () => {
         expect(stdout).to.equal('');
     });
 
+    it('should print the package version to stdout for -v', () => {
+        const { stdout, stderr, status } = runCli(['-v']);
+        const expected = JSON.parse(readFileSync('./package.json', 'utf8')).version;
+        expect(status).to.equal(0);
+        expect(stdout.trim()).to.equal(expected);
+        expect(stderr).to.equal('');
+    });
+
+    it('should print the package version for --version too', () => {
+        const { stdout, status } = runCli(['--version']);
+        expect(status).to.equal(0);
+        expect(stdout.trim()).to.equal(JSON.parse(readFileSync('./package.json', 'utf8')).version);
+    });
+
+    it('should report a real version rather than the "unknown" fallback', () => {
+        // guards the package.json lookup, whose depth differs between running the
+        // built dist/src/dotenvenc.js and running src/dotenvenc.ts directly
+        expect(runCli(['-v']).stdout.trim()).to.match(/^\d+\.\d+\.\d+/);
+    });
+
     it('should print help to stdout and exit zero for -h', () => {
         const { stdout, status } = runCli(['-h']);
         expect(status).to.equal(0);

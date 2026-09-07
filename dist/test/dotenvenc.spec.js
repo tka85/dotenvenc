@@ -450,6 +450,23 @@ describe('cli', () => {
         (0, chai_1.expect)(stderr).to.contain('Missing either -e to encrypt or -d to decrypt');
         (0, chai_1.expect)(stdout).to.equal('');
     });
+    it('should print the package version to stdout for -v', () => {
+        const { stdout, stderr, status } = runCli(['-v']);
+        const expected = JSON.parse((0, fs_1.readFileSync)('./package.json', 'utf8')).version;
+        (0, chai_1.expect)(status).to.equal(0);
+        (0, chai_1.expect)(stdout.trim()).to.equal(expected);
+        (0, chai_1.expect)(stderr).to.equal('');
+    });
+    it('should print the package version for --version too', () => {
+        const { stdout, status } = runCli(['--version']);
+        (0, chai_1.expect)(status).to.equal(0);
+        (0, chai_1.expect)(stdout.trim()).to.equal(JSON.parse((0, fs_1.readFileSync)('./package.json', 'utf8')).version);
+    });
+    it('should report a real version rather than the "unknown" fallback', () => {
+        // guards the package.json lookup, whose depth differs between running the
+        // built dist/src/dotenvenc.js and running src/dotenvenc.ts directly
+        (0, chai_1.expect)(runCli(['-v']).stdout.trim()).to.match(/^\d+\.\d+\.\d+/);
+    });
     it('should print help to stdout and exit zero for -h', () => {
         const { stdout, status } = runCli(['-h']);
         (0, chai_1.expect)(status).to.equal(0);

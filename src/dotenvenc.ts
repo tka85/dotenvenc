@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 import minimist from 'minimist';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { encrypt, decrypt, DEFAULT_DECRYPTED_FILE, DEFAULT_ENCRYPTED_FILE, printExport, DEFAULT_ENCRYPTED_FILE_READABLE, logInfo } from './index';
 
 const args = minimist(process.argv.slice(2), {
-    boolean: ['e', 'r', 'd', 'h', 's', 'x'],
+    boolean: ['e', 'r', 'd', 'h', 's', 'x', 'v'],
     string: ['i', 'o'],
     alias: {
         e: 'encrypt',
@@ -13,9 +15,30 @@ const args = minimist(process.argv.slice(2), {
         x: 'export',
         r: 'readable',
         s: 'silent',
+        v: 'version',
         h: 'help',
     }
 });
+
+/**
+ * Read the version out of the package's own package.json.
+ * Its depth differs by how this file is being run: two levels up from the built
+ * dist/src/dotenvenc.js, one level up when running src/dotenvenc.ts directly.
+ * @returns   {String}   the package version, or "unknown" if package.json cannot be read
+ */
+function readVersion(): string {
+    for (const candidate of [join(__dirname, '..', '..', 'package.json'), join(__dirname, '..', 'package.json')]) {
+        try {
+            const pkg = JSON.parse(readFileSync(candidate, 'utf8'));
+            if (pkg.name === '@tka85/dotenvenc' && typeof pkg.version === 'string') {
+                return pkg.version;
+            }
+        } catch {
+            // not there, or not ours; try the next candidate
+        }
+    }
+    return 'unknown';
+}
 
 
 /**
@@ -47,6 +70,7 @@ function printHelp(errorMsg?: string) {
     -x, --export     to dump as "export" statements the contents of an encrypted .env.enc file
     -r, --readable   to also add a .env.enc.readable when encrypting a .env which will contain have only the values encrypted
     -s, --silent     do not print informative messages; only errors and warnings
+    -v, --version    print the installed version and exit
     -h, --help       print this help
 
 * Encryption examples:
@@ -77,7 +101,10 @@ function printHelp(errorMsg?: string) {
 }
 
 async function main(): Promise<void> {
-    if (args.h) {
+    if (args.v) {
+        // the requested output, so stdout, same as -h
+        console.log(readVersion());
+    } else if (args.h) {
         printHelp();
     } else if (args.d) {
         await decrypt({ encryptedFile: args.i, print: true, silent: args.s });

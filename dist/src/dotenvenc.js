@@ -5,9 +5,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const minimist_1 = __importDefault(require("minimist"));
+const fs_1 = require("fs");
+const path_1 = require("path");
 const index_1 = require("./index");
 const args = (0, minimist_1.default)(process.argv.slice(2), {
-    boolean: ['e', 'r', 'd', 'h', 's', 'x'],
+    boolean: ['e', 'r', 'd', 'h', 's', 'x', 'v'],
     string: ['i', 'o'],
     alias: {
         e: 'encrypt',
@@ -17,9 +19,30 @@ const args = (0, minimist_1.default)(process.argv.slice(2), {
         x: 'export',
         r: 'readable',
         s: 'silent',
+        v: 'version',
         h: 'help',
     }
 });
+/**
+ * Read the version out of the package's own package.json.
+ * Its depth differs by how this file is being run: two levels up from the built
+ * dist/src/dotenvenc.js, one level up when running src/dotenvenc.ts directly.
+ * @returns   {String}   the package version, or "unknown" if package.json cannot be read
+ */
+function readVersion() {
+    for (const candidate of [(0, path_1.join)(__dirname, '..', '..', 'package.json'), (0, path_1.join)(__dirname, '..', 'package.json')]) {
+        try {
+            const pkg = JSON.parse((0, fs_1.readFileSync)(candidate, 'utf8'));
+            if (pkg.name === '@tka85/dotenvenc' && typeof pkg.version === 'string') {
+                return pkg.version;
+            }
+        }
+        catch {
+            // not there, or not ours; try the next candidate
+        }
+    }
+    return 'unknown';
+}
 /**
  * @param   {String}    errorMsg       optional error message to print before printing the help syntax
  */
@@ -49,6 +72,7 @@ function printHelp(errorMsg) {
     -x, --export     to dump as "export" statements the contents of an encrypted .env.enc file
     -r, --readable   to also add a .env.enc.readable when encrypting a .env which will contain have only the values encrypted
     -s, --silent     do not print informative messages; only errors and warnings
+    -v, --version    print the installed version and exit
     -h, --help       print this help
 
 * Encryption examples:
@@ -78,7 +102,11 @@ function printHelp(errorMsg) {
     process.exit(errorMsg ? 1 : 0);
 }
 async function main() {
-    if (args.h) {
+    if (args.v) {
+        // the requested output, so stdout, same as -h
+        console.log(readVersion());
+    }
+    else if (args.h) {
         printHelp();
     }
     else if (args.d) {

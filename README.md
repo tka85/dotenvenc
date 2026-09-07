@@ -280,6 +280,7 @@ The values are digests keyed by a scrypt-derived key, not by your password. In v
 -x, --export     dump the contents of an encrypted .env.enc as "export" statements
 -r, --readable   also write a .readable digest file when encrypting
 -s, --silent     do not print informational messages; errors and warnings are still shown
+-v, --version    print the installed version and exit
 -h, --help       print this help
 ```
 
@@ -293,6 +294,7 @@ failures are reported as a single line.
 | `-d`, `-x` | the secrets | informational messages, warnings | 0 |
 | `-e` | nothing | informational messages, warnings | 0 |
 | `-h` | help text | nothing | 0 |
+| `-v` | version number | nothing | 0 |
 | wrong invocation | nothing | error + help text | 1 |
 | any failure | nothing | a one-line `Error: ...` message | 1 |
 
