@@ -54,9 +54,25 @@ export type encryptParams = {
     silent?: boolean,
 };
 
+/**
+ * Write payload to stdout: the decrypted variables the caller asked for, and nothing else.
+ * Anything that is not the answer to the command belongs on stderr, see logInfo().
+ */
 export function log({ data, silent }: { data: string, silent?: boolean }): void {
     if (!silent) {
         console.log(data);
+    }
+}
+
+/**
+ * Write a diagnostic to stderr.
+ * These used to go to stdout, which corrupted the documented
+ * `eval $(dotenvenc -x)` usage: the shell evaluated the informational lines
+ * along with the export statements.
+ */
+export function logInfo({ data, silent }: { data: string, silent?: boolean }): void {
+    if (!silent) {
+        console.error(data);
     }
 }
 
@@ -210,14 +226,12 @@ async function decryptFile(encryptedFile: string, passwd: string): Promise<Doten
 export async function decrypt(params?: decryptParams): Promise<{ [key: string]: string }> {
     let passwd = params && params.passwd;
     const silent = params && params.silent || false;
-    // if passed params.print=true we don't want to print anything else besides the `export VAR=VAL` lines
-    let logOutput = '';
     if (!passwd) {
         if (!process.env.DOTENVENC_PASS) {
-            log({ data: '# WARNING: no env variable DOTENVENC_PASS found; prompting for encryption password', silent });
+            logInfo({ data: '# WARNING: no env variable DOTENVENC_PASS found; prompting for encryption password', silent });
             passwd = await promptPassword(false, silent);
         } else {
-            logOutput += '# Decrypted using env variable DOTENVENC_PASS';
+            logInfo({ data: '# Decrypted using env variable DOTENVENC_PASS', silent });
             passwd = process.env.DOTENVENC_PASS;
         }
     }
@@ -236,8 +250,6 @@ export async function decrypt(params?: decryptParams): Promise<{ [key: string]: 
                 log({ data: `${prop}=${quoted}` });
             }
         }
-    } else if (logOutput) {
-        log({ data: logOutput, silent });
     }
     return parsedEnv;
 }
@@ -253,8 +265,10 @@ export async function printExport(params?: decryptParams): Promise<void> {
     const silent = params && params.silent || false;
     if (!passwd) {
         if (!process.env.DOTENVENC_PASS) {
+            logInfo({ data: '# WARNING: no env variable DOTENVENC_PASS found; prompting for encryption password', silent });
             passwd = await promptPassword(false, silent);
         } else {
+            logInfo({ data: '# Decrypted using env variable DOTENVENC_PASS', silent });
             passwd = process.env.DOTENVENC_PASS;
         }
     }
@@ -287,10 +301,10 @@ export async function encrypt(params?: encryptParams): Promise<Buffer> {
     const silent = params && params.silent || false;
     if (!passwd) {
         if (!process.env.DOTENVENC_PASS) {
-            log({ data: '# WARNING: no env variable DOTENVENC_PASS found; prompting for encryption password', silent });
+            logInfo({ data: '# WARNING: no env variable DOTENVENC_PASS found; prompting for encryption password', silent });
             passwd = await promptPassword(true, silent);
         } else {
-            log({ data: '# Encrypting using env variable DOTENVENC_PASS', silent });
+            logInfo({ data: '# Encrypting using env variable DOTENVENC_PASS', silent });
             passwd = process.env.DOTENVENC_PASS;
         }
     }
@@ -301,7 +315,7 @@ export async function encrypt(params?: encryptParams): Promise<Buffer> {
         throw new Error(`Decrypted secrets input file "${decryptedFilename}" not found`);
     }
     if (existsSync(encryptedFilename)) {
-        log({ data: `# WARNING: encrypted secrets output file "${encryptedFilename}" already exists; overwriting...`, silent });
+        logInfo({ data: `# WARNING: encrypted secrets output file "${encryptedFilename}" already exists; overwriting...`, silent });
     }
     const decryptedEnvContentsBuff = readFileSync(decryptedFilename);
     const parsedEnvContents = dotenv.parse(decryptedEnvContentsBuff);
@@ -373,6 +387,7 @@ export async function promptPassword(askConfirmation: boolean, silent: boolean):
         type: 'password',
         name: 'passwd',
         message: silent ? '' : 'Type password:',
+        stdout: process.stderr,
         // only applied when creating a file; opening one must not be blocked by the floor
         validate: askConfirmation
             ? (value: string) => value.length >= MIN_PASSWORD_LENGTH || `Password must be at least ${MIN_PASSWORD_LENGTH} characters long`
@@ -387,7 +402,8 @@ export async function promptPassword(askConfirmation: boolean, silent: boolean):
         const { confirmPasswd } = await prompts({
             type: 'password',
             name: 'confirmPasswd',
-            message: silent ? '' : 'Confirm password:'
+            message: silent ? '' : 'Confirm password:',
+            stdout: process.stderr,
         });
         if (confirmPasswd === undefined) {
             throw new Error('Password entry cancelled');

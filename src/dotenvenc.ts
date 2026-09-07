@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { encrypt, decrypt, DEFAULT_DECRYPTED_FILE, DEFAULT_ENCRYPTED_FILE, printExport, DEFAULT_ENCRYPTED_FILE_READABLE, log } from './index';
+import { encrypt, decrypt, DEFAULT_DECRYPTED_FILE, DEFAULT_ENCRYPTED_FILE, printExport, DEFAULT_ENCRYPTED_FILE_READABLE, logInfo } from './index';
 
 const args = require('minimist')(process.argv.slice(2), {
     boolean: ['e', 'r', 'd', 'h', 's', 'x'],
@@ -21,10 +21,13 @@ const args = require('minimist')(process.argv.slice(2), {
  * @param   {String}    errorMsg       optional error message to print before printing the help syntax
  */
 function printHelp(errorMsg?: string) {
+    // Usage requested with -h is the answer to the command and goes to stdout;
+    // usage shown because the invocation was wrong is a diagnostic and goes to stderr.
+    const write = errorMsg ? console.error : console.log;
     if (errorMsg) {
-        console.log(`Error: `, errorMsg);
+        console.error(`Error: `, errorMsg);
     }
-    console.log(`
+    write(`
 * Usage:
     - To encrypt unencrypted env file and persist the encrypted file on disk (will be prompted for password):
     $ ./node_modules/.bin/dotenvenc -e [-i decryptedFile] [-o encryptedFile]
@@ -69,7 +72,7 @@ function printHelp(errorMsg?: string) {
     - To dump default encrypted "${DEFAULT_ENCRYPTED_FILE}" as "export" statements:
         $ ./node_modules/.bin/dotenvenc - 
 `);
-    process.exit(0);
+    process.exit(errorMsg ? 1 : 0);
 }
 
 (async () => {
@@ -81,9 +84,9 @@ function printHelp(errorMsg?: string) {
             await decrypt({ passwd, encryptedFile: args.i, print: true, silent: args.s });
         } else if (args.e) {
             await encrypt({ passwd, decryptedFile: args.i, encryptedFile: args.o, includeReadable: args.r, silent: args.s });
-            log({ data: `Saved encrypted file: ${args.o ?? DEFAULT_ENCRYPTED_FILE}`, silent: args.s });
+            logInfo({ data: `Saved encrypted file: ${args.o ?? DEFAULT_ENCRYPTED_FILE}`, silent: args.s });
             if (args.r) {
-                log({ data: `And additionally saved semi-encrypted file: ${args.o ?? DEFAULT_ENCRYPTED_FILE}.readable`, silent: args.s });
+                logInfo({ data: `And additionally saved semi-encrypted file: ${args.o ?? DEFAULT_ENCRYPTED_FILE}.readable`, silent: args.s });
             }
         } else if (args.x) {
             await printExport({ passwd, encryptedFile: args.i, silent: args.s });

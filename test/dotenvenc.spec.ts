@@ -11,7 +11,7 @@ const CUSTOM_ENCRYPTED_FILE_READABLE = './.env.enc.custom.readable';
 const rewire = require("rewire");
 const dotenvenc = rewire('../src/index');
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'fs';
-import { execFileSync, spawn } from 'child_process';
+import { execFileSync, spawn, spawnSync } from 'child_process';
 import { parse as dotenvParse } from 'dotenv';
 import { createHmac } from 'crypto';
 import { expect } from 'chai';
@@ -410,11 +410,12 @@ describe('cli', () => {
 
     // Run the CLI the way a user does, straight from source, so argument parsing
     // is exercised end to end rather than re-declared in the test.
-    function runCli(cliArgs: string[]): string {
-        return execFileSync(process.execPath, ['-r', 'ts-node/register', 'src/dotenvenc.ts', ...cliArgs], {
+    function runCli(cliArgs: string[]): { stdout: string, stderr: string, status: number | null } {
+        const result = spawnSync(process.execPath, ['-r', 'ts-node/register', 'src/dotenvenc.ts', ...cliArgs], {
             encoding: 'utf8',
             env: { ...process.env, DOTENVENC_PASS: ENC_PASSWD },
         });
+        return { stdout: result.stdout, stderr: result.stderr, status: result.status };
     }
 
     afterEach(() => {
@@ -422,30 +423,63 @@ describe('cli', () => {
         removeFile(`${CLI_ENCRYPTED_FILE}.readable`);
     });
 
-    it('should print informative messages when neither -s nor --silent is passed', () => {
-        const output = runCli(['-e', '-i', TEST_SAMPLE_DECRYPTED_FILE, '-o', CLI_ENCRYPTED_FILE]);
-        expect(output).to.contain('Encrypting using env variable DOTENVENC_PASS');
-        expect(output).to.contain('Saved encrypted file');
+    it('should print informative messages on stderr, never stdout', () => {
+        const { stdout, stderr } = runCli(['-e', '-i', TEST_SAMPLE_DECRYPTED_FILE, '-o', CLI_ENCRYPTED_FILE]);
+        expect(stderr).to.contain('Encrypting using env variable DOTENVENC_PASS');
+        expect(stderr).to.contain('Saved encrypted file');
+        expect(stdout).to.equal('');
     });
 
     it('should suppress informative messages with -s', () => {
-        expect(runCli(['-e', '-i', TEST_SAMPLE_DECRYPTED_FILE, '-o', CLI_ENCRYPTED_FILE, '-s'])).to.equal('');
+        const { stdout, stderr } = runCli(['-e', '-i', TEST_SAMPLE_DECRYPTED_FILE, '-o', CLI_ENCRYPTED_FILE, '-s']);
+        expect(stdout).to.equal('');
+        expect(stderr).to.equal('');
     });
 
     it('should suppress informative messages with --silent', () => {
-        expect(runCli(['-e', '-i', TEST_SAMPLE_DECRYPTED_FILE, '-o', CLI_ENCRYPTED_FILE, '--silent'])).to.equal('');
+        const { stdout, stderr } = runCli(['-e', '-i', TEST_SAMPLE_DECRYPTED_FILE, '-o', CLI_ENCRYPTED_FILE, '--silent']);
+        expect(stdout).to.equal('');
+        expect(stderr).to.equal('');
     });
 
     it('should treat -s as a flag rather than consuming the next argument', () => {
-        expect(runCli(['-e', '-s', '-i', TEST_SAMPLE_DECRYPTED_FILE, '-o', CLI_ENCRYPTED_FILE])).to.equal('');
+        const { stdout } = runCli(['-e', '-s', '-i', TEST_SAMPLE_DECRYPTED_FILE, '-o', CLI_ENCRYPTED_FILE]);
+        expect(stdout).to.equal('');
         expect(existsSync(CLI_ENCRYPTED_FILE)).to.equal(true);
     });
 
     it('should round-trip through the CLI: -e then -d prints the secrets', () => {
         runCli(['-e', '-i', TEST_SAMPLE_DECRYPTED_FILE, '-o', CLI_ENCRYPTED_FILE, '--silent']);
-        const output = runCli(['-d', '-i', CLI_ENCRYPTED_FILE, '--silent']);
-        expect(output).to.contain(`ALPHA='bar'`);
-        expect(output).to.contain(`GAMMA='1234'`);
+        const { stdout } = runCli(['-d', '-i', CLI_ENCRYPTED_FILE, '--silent']);
+        expect(stdout).to.contain(`ALPHA='bar'`);
+        expect(stdout).to.contain(`GAMMA='1234'`);
+    });
+
+    it('should keep stdout clean enough for `eval $(dotenvenc -x)` even while reporting on stderr', () => {
+        runCli(['-e', '-i', TEST_SAMPLE_DECRYPTED_FILE, '-o', CLI_ENCRYPTED_FILE, '--silent']);
+        // no --silent here: the informational line must land on stderr, out of eval's way
+        const { stdout, stderr } = runCli(['-x', '-i', CLI_ENCRYPTED_FILE]);
+        expect(stderr).to.contain('DOTENVENC_PASS');
+        // stdout must carry export statements only; KAPPA is multi-line, so check that
+        // no diagnostic leaked rather than that every line starts with "export"
+        expect(stdout).to.not.contain('DOTENVENC_PASS');
+        expect(stdout).to.not.contain('WARNING');
+        expect(stdout.startsWith('export ')).to.equal(true);
+        const values = execFileSync('bash', ['-c', `${stdout}\nprintf '%s|%s' "$BETA" "$KAPPA"`], { encoding: 'utf8' });
+        expect(values).to.equal('foo bar|multi\nline\nvalue');
+    });
+
+    it('should exit non-zero and report on stderr when neither -e nor -d nor -x is given', () => {
+        const { stdout, stderr, status } = runCli([]);
+        expect(status).to.equal(1);
+        expect(stderr).to.contain('Missing either -e to encrypt or -d to decrypt');
+        expect(stdout).to.equal('');
+    });
+
+    it('should print help to stdout and exit zero for -h', () => {
+        const { stdout, status } = runCli(['-h']);
+        expect(status).to.equal(0);
+        expect(stdout).to.contain('Usage:');
     });
 });
 

@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.promptPassword = exports.encryptValuesOnly = exports.encrypt = exports.printExport = exports.decrypt = exports.log = exports.CURRENT_FORMAT_VERSION = exports.DEFAULT_DECRYPTED_FILE = exports.DEFAULT_ENCRYPTED_FILE_READABLE = exports.DEFAULT_ENCRYPTED_FILE = void 0;
+exports.promptPassword = exports.encryptValuesOnly = exports.encrypt = exports.printExport = exports.decrypt = exports.logInfo = exports.log = exports.CURRENT_FORMAT_VERSION = exports.DEFAULT_DECRYPTED_FILE = exports.DEFAULT_ENCRYPTED_FILE_READABLE = exports.DEFAULT_ENCRYPTED_FILE = void 0;
 const crypto_1 = __importDefault(require("crypto"));
 const fs_1 = require("fs");
 const dotenv_1 = __importDefault(require("dotenv"));
@@ -33,12 +33,28 @@ exports.CURRENT_FORMAT_VERSION = 'v2';
 // HKDF label separating the .readable digest key from the file encryption key
 const READABLE_KEY_INFO = 'dotenvenc:readable-digest';
 const MIN_PASSWORD_LENGTH = 8;
+/**
+ * Write payload to stdout: the decrypted variables the caller asked for, and nothing else.
+ * Anything that is not the answer to the command belongs on stderr, see logInfo().
+ */
 function log({ data, silent }) {
     if (!silent) {
         console.log(data);
     }
 }
 exports.log = log;
+/**
+ * Write a diagnostic to stderr.
+ * These used to go to stdout, which corrupted the documented
+ * `eval $(dotenvenc -x)` usage: the shell evaluated the informational lines
+ * along with the export statements.
+ */
+function logInfo({ data, silent }) {
+    if (!silent) {
+        console.error(data);
+    }
+}
+exports.logInfo = logInfo;
 /**
  * Check that a resolved password can actually protect anything.
  * An empty password is always a mistake: it used to produce a key of 32 zero bytes,
@@ -184,15 +200,13 @@ async function decryptFile(encryptedFile, passwd) {
 async function decrypt(params) {
     let passwd = params && params.passwd;
     const silent = params && params.silent || false;
-    // if passed params.print=true we don't want to print anything else besides the `export VAR=VAL` lines
-    let logOutput = '';
     if (!passwd) {
         if (!process.env.DOTENVENC_PASS) {
-            log({ data: '# WARNING: no env variable DOTENVENC_PASS found; prompting for encryption password', silent });
+            logInfo({ data: '# WARNING: no env variable DOTENVENC_PASS found; prompting for encryption password', silent });
             passwd = await promptPassword(false, silent);
         }
         else {
-            logOutput += '# Decrypted using env variable DOTENVENC_PASS';
+            logInfo({ data: '# Decrypted using env variable DOTENVENC_PASS', silent });
             passwd = process.env.DOTENVENC_PASS;
         }
     }
@@ -212,9 +226,6 @@ async function decrypt(params) {
             }
         }
     }
-    else if (logOutput) {
-        log({ data: logOutput, silent });
-    }
     return parsedEnv;
 }
 exports.decrypt = decrypt;
@@ -229,9 +240,11 @@ async function printExport(params) {
     const silent = params && params.silent || false;
     if (!passwd) {
         if (!process.env.DOTENVENC_PASS) {
+            logInfo({ data: '# WARNING: no env variable DOTENVENC_PASS found; prompting for encryption password', silent });
             passwd = await promptPassword(false, silent);
         }
         else {
+            logInfo({ data: '# Decrypted using env variable DOTENVENC_PASS', silent });
             passwd = process.env.DOTENVENC_PASS;
         }
     }
@@ -264,11 +277,11 @@ async function encrypt(params) {
     const silent = params && params.silent || false;
     if (!passwd) {
         if (!process.env.DOTENVENC_PASS) {
-            log({ data: '# WARNING: no env variable DOTENVENC_PASS found; prompting for encryption password', silent });
+            logInfo({ data: '# WARNING: no env variable DOTENVENC_PASS found; prompting for encryption password', silent });
             passwd = await promptPassword(true, silent);
         }
         else {
-            log({ data: '# Encrypting using env variable DOTENVENC_PASS', silent });
+            logInfo({ data: '# Encrypting using env variable DOTENVENC_PASS', silent });
             passwd = process.env.DOTENVENC_PASS;
         }
     }
@@ -279,7 +292,7 @@ async function encrypt(params) {
         throw new Error(`Decrypted secrets input file "${decryptedFilename}" not found`);
     }
     if ((0, fs_1.existsSync)(encryptedFilename)) {
-        log({ data: `# WARNING: encrypted secrets output file "${encryptedFilename}" already exists; overwriting...`, silent });
+        logInfo({ data: `# WARNING: encrypted secrets output file "${encryptedFilename}" already exists; overwriting...`, silent });
     }
     const decryptedEnvContentsBuff = (0, fs_1.readFileSync)(decryptedFilename);
     const parsedEnvContents = dotenv_1.default.parse(decryptedEnvContentsBuff);
@@ -351,6 +364,7 @@ async function promptPassword(askConfirmation, silent) {
         type: 'password',
         name: 'passwd',
         message: silent ? '' : 'Type password:',
+        stdout: process.stderr,
         // only applied when creating a file; opening one must not be blocked by the floor
         validate: askConfirmation
             ? (value) => value.length >= MIN_PASSWORD_LENGTH || `Password must be at least ${MIN_PASSWORD_LENGTH} characters long`
@@ -365,7 +379,8 @@ async function promptPassword(askConfirmation, silent) {
         const { confirmPasswd } = await (0, prompts_1.default)({
             type: 'password',
             name: 'confirmPasswd',
-            message: silent ? '' : 'Confirm password:'
+            message: silent ? '' : 'Confirm password:',
+            stdout: process.stderr,
         });
         if (confirmPasswd === undefined) {
             throw new Error('Password entry cancelled');

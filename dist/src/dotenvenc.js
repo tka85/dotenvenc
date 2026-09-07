@@ -20,10 +20,13 @@ const args = require('minimist')(process.argv.slice(2), {
  * @param   {String}    errorMsg       optional error message to print before printing the help syntax
  */
 function printHelp(errorMsg) {
+    // Usage requested with -h is the answer to the command and goes to stdout;
+    // usage shown because the invocation was wrong is a diagnostic and goes to stderr.
+    const write = errorMsg ? console.error : console.log;
     if (errorMsg) {
-        console.log(`Error: `, errorMsg);
+        console.error(`Error: `, errorMsg);
     }
-    console.log(`
+    write(`
 * Usage:
     - To encrypt unencrypted env file and persist the encrypted file on disk (will be prompted for password):
     $ ./node_modules/.bin/dotenvenc -e [-i decryptedFile] [-o encryptedFile]
@@ -68,7 +71,7 @@ function printHelp(errorMsg) {
     - To dump default encrypted "${index_1.DEFAULT_ENCRYPTED_FILE}" as "export" statements:
         $ ./node_modules/.bin/dotenvenc - 
 `);
-    process.exit(0);
+    process.exit(errorMsg ? 1 : 0);
 }
 (async () => {
     if (args.h) {
@@ -81,9 +84,9 @@ function printHelp(errorMsg) {
         }
         else if (args.e) {
             await (0, index_1.encrypt)({ passwd, decryptedFile: args.i, encryptedFile: args.o, includeReadable: args.r, silent: args.s });
-            (0, index_1.log)({ data: `Saved encrypted file: ${args.o ?? index_1.DEFAULT_ENCRYPTED_FILE}`, silent: args.s });
+            (0, index_1.logInfo)({ data: `Saved encrypted file: ${args.o ?? index_1.DEFAULT_ENCRYPTED_FILE}`, silent: args.s });
             if (args.r) {
-                (0, index_1.log)({ data: `And additionally saved semi-encrypted file: ${args.o ?? index_1.DEFAULT_ENCRYPTED_FILE}.readable`, silent: args.s });
+                (0, index_1.logInfo)({ data: `And additionally saved semi-encrypted file: ${args.o ?? index_1.DEFAULT_ENCRYPTED_FILE}.readable`, silent: args.s });
             }
         }
         else if (args.x) {

@@ -392,35 +392,66 @@ describe('cli', () => {
     // Run the CLI the way a user does, straight from source, so argument parsing
     // is exercised end to end rather than re-declared in the test.
     function runCli(cliArgs) {
-        return (0, child_process_1.execFileSync)(process.execPath, ['-r', 'ts-node/register', 'src/dotenvenc.ts', ...cliArgs], {
+        const result = (0, child_process_1.spawnSync)(process.execPath, ['-r', 'ts-node/register', 'src/dotenvenc.ts', ...cliArgs], {
             encoding: 'utf8',
             env: { ...process.env, DOTENVENC_PASS: ENC_PASSWD },
         });
+        return { stdout: result.stdout, stderr: result.stderr, status: result.status };
     }
     afterEach(() => {
         removeFile(CLI_ENCRYPTED_FILE);
         removeFile(`${CLI_ENCRYPTED_FILE}.readable`);
     });
-    it('should print informative messages when neither -s nor --silent is passed', () => {
-        const output = runCli(['-e', '-i', TEST_SAMPLE_DECRYPTED_FILE, '-o', CLI_ENCRYPTED_FILE]);
-        (0, chai_1.expect)(output).to.contain('Encrypting using env variable DOTENVENC_PASS');
-        (0, chai_1.expect)(output).to.contain('Saved encrypted file');
+    it('should print informative messages on stderr, never stdout', () => {
+        const { stdout, stderr } = runCli(['-e', '-i', TEST_SAMPLE_DECRYPTED_FILE, '-o', CLI_ENCRYPTED_FILE]);
+        (0, chai_1.expect)(stderr).to.contain('Encrypting using env variable DOTENVENC_PASS');
+        (0, chai_1.expect)(stderr).to.contain('Saved encrypted file');
+        (0, chai_1.expect)(stdout).to.equal('');
     });
     it('should suppress informative messages with -s', () => {
-        (0, chai_1.expect)(runCli(['-e', '-i', TEST_SAMPLE_DECRYPTED_FILE, '-o', CLI_ENCRYPTED_FILE, '-s'])).to.equal('');
+        const { stdout, stderr } = runCli(['-e', '-i', TEST_SAMPLE_DECRYPTED_FILE, '-o', CLI_ENCRYPTED_FILE, '-s']);
+        (0, chai_1.expect)(stdout).to.equal('');
+        (0, chai_1.expect)(stderr).to.equal('');
     });
     it('should suppress informative messages with --silent', () => {
-        (0, chai_1.expect)(runCli(['-e', '-i', TEST_SAMPLE_DECRYPTED_FILE, '-o', CLI_ENCRYPTED_FILE, '--silent'])).to.equal('');
+        const { stdout, stderr } = runCli(['-e', '-i', TEST_SAMPLE_DECRYPTED_FILE, '-o', CLI_ENCRYPTED_FILE, '--silent']);
+        (0, chai_1.expect)(stdout).to.equal('');
+        (0, chai_1.expect)(stderr).to.equal('');
     });
     it('should treat -s as a flag rather than consuming the next argument', () => {
-        (0, chai_1.expect)(runCli(['-e', '-s', '-i', TEST_SAMPLE_DECRYPTED_FILE, '-o', CLI_ENCRYPTED_FILE])).to.equal('');
+        const { stdout } = runCli(['-e', '-s', '-i', TEST_SAMPLE_DECRYPTED_FILE, '-o', CLI_ENCRYPTED_FILE]);
+        (0, chai_1.expect)(stdout).to.equal('');
         (0, chai_1.expect)((0, fs_1.existsSync)(CLI_ENCRYPTED_FILE)).to.equal(true);
     });
     it('should round-trip through the CLI: -e then -d prints the secrets', () => {
         runCli(['-e', '-i', TEST_SAMPLE_DECRYPTED_FILE, '-o', CLI_ENCRYPTED_FILE, '--silent']);
-        const output = runCli(['-d', '-i', CLI_ENCRYPTED_FILE, '--silent']);
-        (0, chai_1.expect)(output).to.contain(`ALPHA='bar'`);
-        (0, chai_1.expect)(output).to.contain(`GAMMA='1234'`);
+        const { stdout } = runCli(['-d', '-i', CLI_ENCRYPTED_FILE, '--silent']);
+        (0, chai_1.expect)(stdout).to.contain(`ALPHA='bar'`);
+        (0, chai_1.expect)(stdout).to.contain(`GAMMA='1234'`);
+    });
+    it('should keep stdout clean enough for `eval $(dotenvenc -x)` even while reporting on stderr', () => {
+        runCli(['-e', '-i', TEST_SAMPLE_DECRYPTED_FILE, '-o', CLI_ENCRYPTED_FILE, '--silent']);
+        // no --silent here: the informational line must land on stderr, out of eval's way
+        const { stdout, stderr } = runCli(['-x', '-i', CLI_ENCRYPTED_FILE]);
+        (0, chai_1.expect)(stderr).to.contain('DOTENVENC_PASS');
+        // stdout must carry export statements only; KAPPA is multi-line, so check that
+        // no diagnostic leaked rather than that every line starts with "export"
+        (0, chai_1.expect)(stdout).to.not.contain('DOTENVENC_PASS');
+        (0, chai_1.expect)(stdout).to.not.contain('WARNING');
+        (0, chai_1.expect)(stdout.startsWith('export ')).to.equal(true);
+        const values = (0, child_process_1.execFileSync)('bash', ['-c', `${stdout}\nprintf '%s|%s' "$BETA" "$KAPPA"`], { encoding: 'utf8' });
+        (0, chai_1.expect)(values).to.equal('foo bar|multi\nline\nvalue');
+    });
+    it('should exit non-zero and report on stderr when neither -e nor -d nor -x is given', () => {
+        const { stdout, stderr, status } = runCli([]);
+        (0, chai_1.expect)(status).to.equal(1);
+        (0, chai_1.expect)(stderr).to.contain('Missing either -e to encrypt or -d to decrypt');
+        (0, chai_1.expect)(stdout).to.equal('');
+    });
+    it('should print help to stdout and exit zero for -h', () => {
+        const { stdout, status } = runCli(['-h']);
+        (0, chai_1.expect)(status).to.equal(0);
+        (0, chai_1.expect)(stdout).to.contain('Usage:');
     });
 });
 describe('shell export quoting', () => {

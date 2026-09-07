@@ -17,7 +17,21 @@ export type encryptParams = {
     includeReadable?: boolean;
     silent?: boolean;
 };
+/**
+ * Write payload to stdout: the decrypted variables the caller asked for, and nothing else.
+ * Anything that is not the answer to the command belongs on stderr, see logInfo().
+ */
 export declare function log({ data, silent }: {
+    data: string;
+    silent?: boolean;
+}): void;
+/**
+ * Write a diagnostic to stderr.
+ * These used to go to stdout, which corrupted the documented
+ * `eval $(dotenvenc -x)` usage: the shell evaluated the informational lines
+ * along with the export statements.
+ */
+export declare function logInfo({ data, silent }: {
     data: string;
     silent?: boolean;
 }): void;
