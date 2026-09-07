@@ -242,7 +242,62 @@ describe('decryption', () => {
     });
 
     it(`should throw error if wrong decryption password is supplied`, async () => {
-        await expect(dotenvenc.decrypt({ passwd: WRONG_ENC_PASSWD })).to.be.rejectedWith(/Restored no env variables. Either empty input file or wrong password./);
+        await expect(dotenvenc.decrypt({ passwd: WRONG_ENC_PASSWD })).to.be.rejectedWith(/wrong password, or the file has been tampered with or corrupted/);
+    });
+
+    it(`should reject a tampered ciphertext instead of returning altered secrets`, async () => {
+        const [ivText, authTagText, encText] = readFileSync(dotenvenc.DEFAULT_ENCRYPTED_FILE, 'utf8').split(':');
+        const ciphertext = Buffer.from(encText, 'hex');
+        // Flipping ciphertext bits deterministically rewrites the plaintext under an
+        // unauthenticated stream cipher; GCM's auth tag has to catch it.
+        ciphertext[0] ^= 0xff;
+        writeFileSync(dotenvenc.DEFAULT_ENCRYPTED_FILE, [ivText, authTagText, ciphertext.toString('hex')].join(':'));
+        await expect(dotenvenc.decrypt({ passwd: ENC_PASSWD })).to.be.rejectedWith(/tampered with or corrupted/);
+    });
+
+    it(`should reject a tampered authentication tag`, async () => {
+        const [ivText, authTagText, encText] = readFileSync(dotenvenc.DEFAULT_ENCRYPTED_FILE, 'utf8').split(':');
+        const authTag = Buffer.from(authTagText, 'hex');
+        authTag[0] ^= 0xff;
+        writeFileSync(dotenvenc.DEFAULT_ENCRYPTED_FILE, [ivText, authTag.toString('hex'), encText].join(':'));
+        await expect(dotenvenc.decrypt({ passwd: ENC_PASSWD })).to.be.rejectedWith(/tampered with or corrupted/);
+    });
+
+    it(`should reject a tampered initialization vector`, async () => {
+        const [ivText, authTagText, encText] = readFileSync(dotenvenc.DEFAULT_ENCRYPTED_FILE, 'utf8').split(':');
+        const iv = Buffer.from(ivText, 'hex');
+        iv[0] ^= 0xff;
+        writeFileSync(dotenvenc.DEFAULT_ENCRYPTED_FILE, [iv.toString('hex'), authTagText, encText].join(':'));
+        await expect(dotenvenc.decrypt({ passwd: ENC_PASSWD })).to.be.rejectedWith(/tampered with or corrupted/);
+    });
+
+    it(`should reject a tampered file via printExport() too`, async () => {
+        const [ivText, authTagText, encText] = readFileSync(dotenvenc.DEFAULT_ENCRYPTED_FILE, 'utf8').split(':');
+        const ciphertext = Buffer.from(encText, 'hex');
+        ciphertext[0] ^= 0xff;
+        writeFileSync(dotenvenc.DEFAULT_ENCRYPTED_FILE, [ivText, authTagText, ciphertext.toString('hex')].join(':'));
+        await expect(dotenvenc.printExport({ passwd: ENC_PASSWD })).to.be.rejectedWith(/tampered with or corrupted/);
+    });
+
+    it(`should reject the legacy unauthenticated dotenvenc <= 5.x file format with a clear error`, async () => {
+        // legacy format was "<iv>:<ciphertext>" with no auth tag
+        writeFileSync(dotenvenc.DEFAULT_ENCRYPTED_FILE, `${'ab'.repeat(16)}:${'cd'.repeat(64)}`);
+        await expect(dotenvenc.decrypt({ passwd: ENC_PASSWD })).to.be.rejectedWith(/older unauthenticated format/);
+    });
+
+    it(`should reject a non-hex encrypted file with a clear error`, async () => {
+        writeFileSync(dotenvenc.DEFAULT_ENCRYPTED_FILE, 'zzzz:cdcd:abab');
+        await expect(dotenvenc.decrypt({ passwd: ENC_PASSWD })).to.be.rejectedWith(/initialization vector is not valid hex/);
+    });
+
+    it(`should reject an encrypted file whose IV is the wrong length`, async () => {
+        writeFileSync(dotenvenc.DEFAULT_ENCRYPTED_FILE, `${'ab'.repeat(8)}:${'cd'.repeat(16)}:${'ef'.repeat(32)}`);
+        await expect(dotenvenc.decrypt({ passwd: ENC_PASSWD })).to.be.rejectedWith(/initialization vector must be 12 bytes but is 8/);
+    });
+
+    it(`should throw Error if the default encrypted secrets file does not exist`, async () => {
+        removeFile(dotenvenc.DEFAULT_ENCRYPTED_FILE);
+        await expect(dotenvenc.decrypt({ passwd: ENC_PASSWD })).to.be.rejectedWith(/Encrypted secrets input file "\.\/\.env\.enc" not found/);
     });
 
     it(`should throw Error if provided encrypted secrets file does not exist`, async () => {

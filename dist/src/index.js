@@ -13,16 +13,73 @@ const prompts_1 = __importDefault(require("prompts"));
 exports.DEFAULT_ENCRYPTED_FILE = './.env.enc';
 exports.DEFAULT_ENCRYPTED_FILE_READABLE = './.env.enc.readable';
 exports.DEFAULT_DECRYPTED_FILE = './.env';
-const ALGOR = 'aes-256-ctr';
-const IV_LENGTH = 16;
+const ALGOR = 'aes-256-gcm';
+const IV_LENGTH = 12; // recommended nonce size for GCM (NIST SP 800-38D)
+const AUTH_TAG_LENGTH = 16;
 const MAX_KEY_LENGTH = 32;
 const BUFFER_PADDING = Buffer.alloc(MAX_KEY_LENGTH); // key used in createCipheriv()/createDecipheriv() buffer needs to be 32 bytes
+const HEX_RE = /^[0-9a-f]*$/i;
 function log({ data, silent }) {
     if (!silent) {
         console.log(data);
     }
 }
 exports.log = log;
+/**
+ * Build the 32 byte key that createCipheriv()/createDecipheriv() require
+ */
+function buildKey(passwd) {
+    return Buffer.concat([Buffer.from(passwd), BUFFER_PADDING], MAX_KEY_LENGTH);
+}
+/**
+ * Decode a hex field of the encrypted file, rejecting non-hex text and wrong lengths.
+ * Buffer.from(x, 'hex') silently drops invalid characters, so it cannot be trusted on its own.
+ */
+function decodeHexField(hexText, fieldName, encryptedFile, expectedBytes) {
+    if (!HEX_RE.test(hexText)) {
+        throw new Error(`Malformed encrypted secrets file "${encryptedFile}": ${fieldName} is not valid hex`);
+    }
+    const buff = Buffer.from(hexText, 'hex');
+    if (expectedBytes !== undefined && buff.length !== expectedBytes) {
+        throw new Error(`Malformed encrypted secrets file "${encryptedFile}": ${fieldName} must be ${expectedBytes} bytes but is ${buff.length}`);
+    }
+    return buff;
+}
+/**
+ * Read, authenticate and decrypt an encrypted secrets file.
+ * Throws if the file is missing or malformed, or if the password is wrong or the contents were tampered with.
+ * @param     {String}    encryptedFile   the full path of the encrypted file
+ * @param     {String}    passwd          the password the file was encrypted with
+ * @returns   {Object}                    the config object as it's parsed by dotenv
+ */
+function decryptFile(encryptedFile, passwd) {
+    if (!(0, fs_1.existsSync)(encryptedFile)) {
+        throw new Error(`Encrypted secrets input file "${encryptedFile}" not found`);
+    }
+    const fields = (0, fs_1.readFileSync)(encryptedFile).toString().trim().split(':');
+    if (fields.length !== 3) {
+        throw new Error(`Malformed encrypted secrets file "${encryptedFile}": expected "<iv>:<authTag>:<ciphertext>" but found ${fields.length} ":"-separated field(s). Files produced by dotenvenc <= 5.x use an older unauthenticated format and have to be re-encrypted.`);
+    }
+    const [ivText, authTagText, encText] = fields;
+    const ivBuff = decodeHexField(ivText, 'initialization vector', encryptedFile, IV_LENGTH);
+    const authTagBuff = decodeHexField(authTagText, 'authentication tag', encryptedFile, AUTH_TAG_LENGTH);
+    const encrBuff = decodeHexField(encText, 'ciphertext', encryptedFile);
+    const decipher = crypto_1.default.createDecipheriv(ALGOR, buildKey(passwd), ivBuff);
+    decipher.setAuthTag(authTagBuff);
+    let decrBuff;
+    try {
+        decrBuff = Buffer.concat([decipher.update(encrBuff), decipher.final()]);
+    }
+    catch {
+        // GCM authentication failed: the key is wrong or the ciphertext/tag was modified
+        throw new Error(`Failed to decrypt "${encryptedFile}": wrong password, or the file has been tampered with or corrupted`);
+    }
+    const parsedEnv = dotenv_1.default.parse(decrBuff);
+    if (Object.keys(parsedEnv).length === 0) {
+        throw new Error(`Restored no env variables from "${encryptedFile}"; the encrypted file is empty`);
+    }
+    return parsedEnv;
+}
 /**
  * Read encrypted env file and either print it on console or populate process.env from it
  * @param     {String}    passwd            the password for decrypting the encrypted .env.enc (memory only;no disk)
@@ -46,21 +103,8 @@ async function decrypt(params) {
         }
     }
     const encryptedFile = (params && params.encryptedFile) || exports.DEFAULT_ENCRYPTED_FILE;
-    if (params && params.encryptedFile && !(0, fs_1.existsSync)(params.encryptedFile)) {
-        throw new Error(`Encrypted secrets input file "${params.encryptedFile}" not found`);
-    }
-    const allEncrData = (0, fs_1.readFileSync)(encryptedFile);
-    const [ivText, encText] = allEncrData.toString().split(':');
-    const ivBuff = Buffer.from(ivText, 'hex');
-    const encrBuff = Buffer.from(encText, 'hex');
-    const decipher = crypto_1.default.createDecipheriv(ALGOR, Buffer.concat([Buffer.from(passwd), BUFFER_PADDING], MAX_KEY_LENGTH), ivBuff);
-    const decrBuff = Buffer.concat([decipher.update(encrBuff), decipher.final()]);
-    const parsedEnv = dotenv_1.default.parse(decrBuff);
+    const parsedEnv = decryptFile(encryptedFile, passwd);
     Object.assign(process.env, parsedEnv);
-    // Wrong passwd => empty list of env vars
-    if (JSON.stringify(parsedEnv) === '{}') {
-        throw new Error('Restored no env variables. Either empty input file or wrong password.');
-    }
     if (params && params.print) {
         for (const prop in parsedEnv) {
             if (parsedEnv.hasOwnProperty(prop)) {
@@ -92,21 +136,8 @@ async function printExport(params) {
         }
     }
     const encryptedFile = (params && params.encryptedFile) || exports.DEFAULT_ENCRYPTED_FILE;
-    if (params && params.encryptedFile && !(0, fs_1.existsSync)(params.encryptedFile)) {
-        throw new Error(`Encrypted secrets input file "${params.encryptedFile}" not found`);
-    }
-    const allEncrData = (0, fs_1.readFileSync)(encryptedFile);
-    const [ivText, encText] = allEncrData.toString().split(':');
-    const ivBuff = Buffer.from(ivText, 'hex');
-    const encrBuff = Buffer.from(encText, 'hex');
-    const decipher = crypto_1.default.createDecipheriv(ALGOR, Buffer.concat([Buffer.from(passwd), BUFFER_PADDING], MAX_KEY_LENGTH), ivBuff);
-    const decrBuff = Buffer.concat([decipher.update(encrBuff), decipher.final()]);
-    const parsedEnv = dotenv_1.default.parse(decrBuff);
+    const parsedEnv = decryptFile(encryptedFile, passwd);
     Object.assign(process.env, parsedEnv);
-    // Wrong passwd => empty list of env vars
-    if (JSON.stringify(parsedEnv) === '{}') {
-        throw new Error('Restored no env variables. Either empty input file or wrong password.');
-    }
     for (const prop in parsedEnv) {
         if (parsedEnv.hasOwnProperty(prop)) {
             log({ data: `export ${prop}="${parsedEnv[prop].replace(/"/g, '\\"')}";` });
@@ -145,9 +176,10 @@ async function encrypt(params) {
     const decryptedEnvContentsBuff = (0, fs_1.readFileSync)(decryptedFilename);
     const parsedEnvContents = dotenv_1.default.parse(decryptedEnvContentsBuff);
     const ivBuff = crypto_1.default.randomBytes(IV_LENGTH);
-    const cipher = crypto_1.default.createCipheriv(ALGOR, Buffer.concat([Buffer.from(passwd), BUFFER_PADDING], MAX_KEY_LENGTH), ivBuff);
+    const cipher = crypto_1.default.createCipheriv(ALGOR, buildKey(passwd), ivBuff);
     const encrBuff = Buffer.concat([cipher.update(decryptedEnvContentsBuff), cipher.final()]);
-    (0, fs_1.writeFileSync)(encryptedFilename, ivBuff.toString('hex') + ':' + encrBuff.toString('hex'));
+    const authTagBuff = cipher.getAuthTag();
+    (0, fs_1.writeFileSync)(encryptedFilename, [ivBuff.toString('hex'), authTagBuff.toString('hex'), encrBuff.toString('hex')].join(':'));
     if (params?.includeReadable === true) {
         encryptValuesOnly(encryptedFilename, passwd, parsedEnvContents);
     }
