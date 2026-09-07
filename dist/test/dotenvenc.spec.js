@@ -38,6 +38,7 @@ const rewire = require("rewire");
 const dotenvenc = rewire('../src/index');
 const fs_1 = require("fs");
 const child_process_1 = require("child_process");
+const dotenv_1 = require("dotenv");
 const chai_1 = require("chai");
 const sinon = __importStar(require("sinon"));
 const chai_2 = __importDefault(require("chai"));
@@ -343,15 +344,28 @@ describe('decryption', () => {
         (0, chai_1.expect)(process.env.DELTA_2).to.equal('With \'single quotes\' inside');
         (0, chai_1.expect)(process.env.EPSILON).to.equal('bla');
         (0, chai_1.expect)(consoleLogSpy.callCount).to.equal(7);
-        (0, chai_1.expect)(consoleLogSpy.getCall(0).args[0]).to.equal('ALPHA=bar');
-        (0, chai_1.expect)(consoleLogSpy.getCall(1).args[0]).to.equal('BETA=foo bar');
-        (0, chai_1.expect)(consoleLogSpy.getCall(2).args[0]).to.equal('GAMMA=1234');
-        (0, chai_1.expect)(consoleLogSpy.getCall(3).args[0]).to.equal('DELTA=With \\"double quotes\\" inside');
-        (0, chai_1.expect)(consoleLogSpy.getCall(4).args[0]).to.equal('DELTA_2=With \'single quotes\' inside');
-        (0, chai_1.expect)(consoleLogSpy.getCall(5).args[0]).to.equal('EPSILON=bla');
-        (0, chai_1.expect)(consoleLogSpy.getCall(6).args[0]).to.equal(`KAPPA=multi
+        (0, chai_1.expect)(consoleLogSpy.getCall(0).args[0]).to.equal(`ALPHA='bar'`);
+        (0, chai_1.expect)(consoleLogSpy.getCall(1).args[0]).to.equal(`BETA='foo bar'`);
+        (0, chai_1.expect)(consoleLogSpy.getCall(2).args[0]).to.equal(`GAMMA='1234'`);
+        (0, chai_1.expect)(consoleLogSpy.getCall(3).args[0]).to.equal(`DELTA='With "double quotes" inside'`);
+        (0, chai_1.expect)(consoleLogSpy.getCall(4).args[0]).to.equal('DELTA_2=`With \'single quotes\' inside`');
+        (0, chai_1.expect)(consoleLogSpy.getCall(5).args[0]).to.equal(`EPSILON='bla'`);
+        (0, chai_1.expect)(consoleLogSpy.getCall(6).args[0]).to.equal(`KAPPA='multi
 line
-value`);
+value'`);
+    });
+    it(`should print values that dotenv parses back unchanged`, async () => {
+        // -d output is documented as the way to recreate a lost .env, so it has to
+        // survive a round trip through dotenv.parse().
+        const nasty = ['QUOTES=`With "double quotes" inside`', 'NEWLINE=`multi\nline\nvalue`', 'DOLLAR=`cost $5 #hash`', 'BACKSLASH=`path\\to`', "SINGLE=`it's here`", 'EMPTY=``'].join('\n');
+        (0, fs_1.writeFileSync)(CUSTOM_DECRYPTED_FILE, `${nasty}\n`);
+        const expected = (0, dotenv_1.parse)((0, fs_1.readFileSync)(CUSTOM_DECRYPTED_FILE));
+        await dotenvenc.encrypt({ passwd: ENC_PASSWD, decryptedFile: CUSTOM_DECRYPTED_FILE, encryptedFile: CUSTOM_ENCRYPTED_FILE, silent: true });
+        const consoleLogSpy = sinon.spy(console, 'log');
+        await dotenvenc.decrypt({ passwd: ENC_PASSWD, encryptedFile: CUSTOM_ENCRYPTED_FILE, print: true });
+        const printed = consoleLogSpy.getCalls().map((call) => call.args[0]).join('\n');
+        sinon.restore();
+        (0, chai_1.expect)((0, dotenv_1.parse)(printed)).to.deep.equal(expected);
     });
     it('should print a dump of "export" statements', async () => {
         const consoleLogSpy = sinon.spy(console, 'log');
@@ -401,8 +415,8 @@ describe('cli', () => {
     it('should round-trip through the CLI: -e then -d prints the secrets', () => {
         runCli(['-e', '-i', TEST_SAMPLE_DECRYPTED_FILE, '-o', CLI_ENCRYPTED_FILE, '--silent']);
         const output = runCli(['-d', '-i', CLI_ENCRYPTED_FILE, '--silent']);
-        (0, chai_1.expect)(output).to.contain('ALPHA=bar');
-        (0, chai_1.expect)(output).to.contain('GAMMA=1234');
+        (0, chai_1.expect)(output).to.contain(`ALPHA='bar'`);
+        (0, chai_1.expect)(output).to.contain(`GAMMA='1234'`);
     });
 });
 describe('shell export quoting', () => {

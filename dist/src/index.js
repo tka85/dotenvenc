@@ -73,6 +73,28 @@ function decodeHexField(hexText, fieldName, encryptedFile, expectedBytes) {
     return buff;
 }
 /**
+ * Quote a value so dotenv.parse() reads it back unchanged.
+ * dotenv strips surrounding quotes but never unescapes, so escaping is not an
+ * option; the only safe move is picking a quote character the value does not use.
+ * Single quotes are tried first: inside them dotenv performs no \\n expansion, so
+ * newlines, backslashes, quotes and # all survive verbatim.
+ * @returns   {String}   the quoted value, or null if no quoting can represent it
+ */
+function dotenvQuote(value) {
+    if (!value.includes(`'`)) {
+        return `'${value}'`;
+    }
+    if (!value.includes('`')) {
+        return `\`${value}\``;
+    }
+    // Double quotes are last: dotenv expands \n and \r inside them, so a value
+    // carrying a backslash cannot round-trip.
+    if (!value.includes('"') && !value.includes('\\')) {
+        return `"${value}"`;
+    }
+    return null;
+}
+/**
  * Quote a value for POSIX sh so that `eval` treats it as literal text.
  * Single quotes are the only shell quoting in which no character is special, so
  * the value only has to have its own single quotes broken out: ' -> '\''.
@@ -158,7 +180,12 @@ async function decrypt(params) {
     if (params && params.print) {
         for (const prop in parsedEnv) {
             if (parsedEnv.hasOwnProperty(prop)) {
-                log({ data: `${prop}=${parsedEnv[prop].replace(/"/g, '\\"')}` });
+                const quoted = dotenvQuote(parsedEnv[prop]);
+                if (quoted === null) {
+                    console.error(`# WARNING: skipping "${prop}", its value mixes quote characters that this .env format cannot represent`);
+                    continue;
+                }
+                log({ data: `${prop}=${quoted}` });
             }
         }
     }

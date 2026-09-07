@@ -12,6 +12,7 @@ const rewire = require("rewire");
 const dotenvenc = rewire('../src/index');
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'fs';
 import { execFileSync } from 'child_process';
+import { parse as dotenvParse } from 'dotenv';
 import { expect } from 'chai';
 import * as sinon from 'sinon';
 import chai from 'chai';
@@ -358,15 +359,29 @@ describe('decryption', () => {
         expect(process.env.DELTA_2).to.equal('With \'single quotes\' inside');
         expect(process.env.EPSILON).to.equal('bla');
         expect(consoleLogSpy.callCount).to.equal(7);
-        expect(consoleLogSpy.getCall(0).args[0]).to.equal('ALPHA=bar');
-        expect(consoleLogSpy.getCall(1).args[0]).to.equal('BETA=foo bar');
-        expect(consoleLogSpy.getCall(2).args[0]).to.equal('GAMMA=1234');
-        expect(consoleLogSpy.getCall(3).args[0]).to.equal('DELTA=With \\"double quotes\\" inside');
-        expect(consoleLogSpy.getCall(4).args[0]).to.equal('DELTA_2=With \'single quotes\' inside');
-        expect(consoleLogSpy.getCall(5).args[0]).to.equal('EPSILON=bla');
-        expect(consoleLogSpy.getCall(6).args[0]).to.equal(`KAPPA=multi
+        expect(consoleLogSpy.getCall(0).args[0]).to.equal(`ALPHA='bar'`);
+        expect(consoleLogSpy.getCall(1).args[0]).to.equal(`BETA='foo bar'`);
+        expect(consoleLogSpy.getCall(2).args[0]).to.equal(`GAMMA='1234'`);
+        expect(consoleLogSpy.getCall(3).args[0]).to.equal(`DELTA='With "double quotes" inside'`);
+        expect(consoleLogSpy.getCall(4).args[0]).to.equal('DELTA_2=`With \'single quotes\' inside`');
+        expect(consoleLogSpy.getCall(5).args[0]).to.equal(`EPSILON='bla'`);
+        expect(consoleLogSpy.getCall(6).args[0]).to.equal(`KAPPA='multi
 line
-value`);
+value'`);
+    });
+
+    it(`should print values that dotenv parses back unchanged`, async () => {
+        // -d output is documented as the way to recreate a lost .env, so it has to
+        // survive a round trip through dotenv.parse().
+        const nasty = ['QUOTES=`With "double quotes" inside`', 'NEWLINE=`multi\nline\nvalue`', 'DOLLAR=`cost $5 #hash`', 'BACKSLASH=`path\\to`', "SINGLE=`it's here`", 'EMPTY=``'].join('\n');
+        writeFileSync(CUSTOM_DECRYPTED_FILE, `${nasty}\n`);
+        const expected = dotenvParse(readFileSync(CUSTOM_DECRYPTED_FILE));
+        await dotenvenc.encrypt({ passwd: ENC_PASSWD, decryptedFile: CUSTOM_DECRYPTED_FILE, encryptedFile: CUSTOM_ENCRYPTED_FILE, silent: true });
+        const consoleLogSpy = sinon.spy(console, 'log');
+        await dotenvenc.decrypt({ passwd: ENC_PASSWD, encryptedFile: CUSTOM_ENCRYPTED_FILE, print: true });
+        const printed = consoleLogSpy.getCalls().map((call) => call.args[0]).join('\n');
+        sinon.restore();
+        expect(dotenvParse(printed)).to.deep.equal(expected);
     });
 
     it('should print a dump of "export" statements', async () => {
@@ -425,8 +440,8 @@ describe('cli', () => {
     it('should round-trip through the CLI: -e then -d prints the secrets', () => {
         runCli(['-e', '-i', TEST_SAMPLE_DECRYPTED_FILE, '-o', CLI_ENCRYPTED_FILE, '--silent']);
         const output = runCli(['-d', '-i', CLI_ENCRYPTED_FILE, '--silent']);
-        expect(output).to.contain('ALPHA=bar');
-        expect(output).to.contain('GAMMA=1234');
+        expect(output).to.contain(`ALPHA='bar'`);
+        expect(output).to.contain(`GAMMA='1234'`);
     });
 });
 
