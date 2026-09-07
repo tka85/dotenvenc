@@ -1,10 +1,8 @@
-// import Debug from 'debug';
 import crypto from 'crypto';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import dotenv, { DotenvParseOutput } from 'dotenv';
 import prompts from 'prompts';
 
-// const debug = Debug('dotenvenc');
 
 export const DEFAULT_ENCRYPTED_FILE = './.env.enc';
 export const DEFAULT_ENCRYPTED_FILE_READABLE = './.env.enc.readable';

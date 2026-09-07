@@ -4,12 +4,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.promptPassword = exports.encryptValuesOnly = exports.encrypt = exports.printExport = exports.decrypt = exports.log = exports.DEFAULT_DECRYPTED_FILE = exports.DEFAULT_ENCRYPTED_FILE_READABLE = exports.DEFAULT_ENCRYPTED_FILE = void 0;
-// import Debug from 'debug';
 const crypto_1 = __importDefault(require("crypto"));
 const fs_1 = require("fs");
 const dotenv_1 = __importDefault(require("dotenv"));
 const prompts_1 = __importDefault(require("prompts"));
-// const debug = Debug('dotenvenc');
 exports.DEFAULT_ENCRYPTED_FILE = './.env.enc';
 exports.DEFAULT_ENCRYPTED_FILE_READABLE = './.env.enc.readable';
 exports.DEFAULT_DECRYPTED_FILE = './.env';
