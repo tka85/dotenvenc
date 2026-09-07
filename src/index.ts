@@ -35,6 +35,8 @@ const FORMATS: { [version: string]: formatSpec } = {
     },
 };
 export const CURRENT_FORMAT_VERSION = 'v2';
+// HKDF label separating the .readable digest key from the file encryption key
+const READABLE_KEY_INFO = 'dotenvenc:readable-digest';
 
 export type decryptParams = {
     passwd?: string, // default is process.env.DOTENVENC_PASS
@@ -287,21 +289,59 @@ export async function encrypt(params?: encryptParams): Promise<Buffer> {
     const authTagBuff = cipher.getAuthTag();
     writeFileSync(encryptedFilename, [CURRENT_FORMAT_VERSION, saltBuff.toString('hex'), ivBuff.toString('hex'), authTagBuff.toString('hex'), encrBuff.toString('hex')].join(':'));
     if (params?.includeReadable === true) {
-        encryptValuesOnly(encryptedFilename, passwd, parsedEnvContents);
+        await encryptValuesOnly(encryptedFilename, passwd, parsedEnvContents);
     }
     return encrBuff;
 }
 
-export function encryptValuesOnly(encryptedFilename: string, passwd: string, parsedEnvContents: DotenvParseOutput): void {
-    const encryptedValuesOnlyFilename = `${encryptedFilename}.readable`;
-    const encryptedValuesOnly = {};
+/**
+ * Recover the salt of an existing .readable file so re-encrypting the same secrets
+ * keeps producing the same digests. Without that the file cannot be diffed across
+ * regenerations, which is the only reason it exists.
+ * @returns   {Buffer}   the stored salt, or null if there is no usable one
+ */
+function readExistingReadableSalt(readableFilename: string, saltLength: number): Buffer | null {
+    if (!existsSync(readableFilename)) {
+        return null;
+    }
+    try {
+        const existing = JSON.parse(readFileSync(readableFilename, 'utf8'));
+        if (existing && typeof existing.salt === 'string' && HEX_RE.test(existing.salt)) {
+            const saltBuff = Buffer.from(existing.salt, 'hex');
+            if (saltBuff.length === saltLength) {
+                return saltBuff;
+            }
+        }
+    } catch {
+        // unparseable or written by an older version; fall through and start a new salt
+    }
+    return null;
+}
+
+/**
+ * Write the companion .readable file: variable names in the clear, values as keyed digests.
+ *
+ * The digest key is NOT the password. Keying the HMAC with the password directly turned
+ * this file into an offline oracle for the master password: an attacker who could guess
+ * any single value (a port, "true", a public URL) could confirm password candidates with
+ * one cheap HMAC each. The key is now scrypt-stretched and HKDF-separated, so each guess
+ * costs a full scrypt evaluation, the same as attacking the encrypted file itself.
+ */
+export async function encryptValuesOnly(encryptedFilename: string, passwd: string, parsedEnvContents: DotenvParseOutput): Promise<void> {
+    const readableFilename = `${encryptedFilename}.readable`;
+    const format = FORMATS[CURRENT_FORMAT_VERSION];
+    const saltBuff = readExistingReadableSalt(readableFilename, format.saltLength) || crypto.randomBytes(format.saltLength);
+    const masterKey = await deriveKey(passwd, saltBuff, format);
+    const digestKey = Buffer.from(crypto.hkdfSync('sha256', masterKey, saltBuff, READABLE_KEY_INFO, KEY_LENGTH));
+    const digests = {};
     Object.entries(parsedEnvContents).forEach(([varName, value]) => {
-        const encrValueHex = crypto.createHmac('sha256', passwd)
-            .update(value)
-            .digest('hex');
-        encryptedValuesOnly[varName] = encrValueHex;
+        digests[varName] = crypto.createHmac('sha256', digestKey).update(value).digest('hex');
     });
-    writeFileSync(encryptedValuesOnlyFilename, JSON.stringify(encryptedValuesOnly, null, 2));
+    writeFileSync(readableFilename, JSON.stringify({
+        version: CURRENT_FORMAT_VERSION,
+        salt: saltBuff.toString('hex'),
+        digests,
+    }, null, 2));
 }
 
 export async function promptPassword(askConfirmation: boolean, silent: boolean): Promise<string> {

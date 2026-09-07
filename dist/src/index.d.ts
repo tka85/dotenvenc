@@ -46,5 +46,14 @@ export declare function printExport(params?: decryptParams): Promise<void>;
  * @returns   {Buffer}                       returns Buffer with encrypted data [regardless of whether it persisted it on disk or not]
  */
 export declare function encrypt(params?: encryptParams): Promise<Buffer>;
-export declare function encryptValuesOnly(encryptedFilename: string, passwd: string, parsedEnvContents: DotenvParseOutput): void;
+/**
+ * Write the companion .readable file: variable names in the clear, values as keyed digests.
+ *
+ * The digest key is NOT the password. Keying the HMAC with the password directly turned
+ * this file into an offline oracle for the master password: an attacker who could guess
+ * any single value (a port, "true", a public URL) could confirm password candidates with
+ * one cheap HMAC each. The key is now scrypt-stretched and HKDF-separated, so each guess
+ * costs a full scrypt evaluation, the same as attacking the encrypted file itself.
+ */
+export declare function encryptValuesOnly(encryptedFilename: string, passwd: string, parsedEnvContents: DotenvParseOutput): Promise<void>;
 export declare function promptPassword(askConfirmation: boolean, silent: boolean): Promise<string>;

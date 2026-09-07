@@ -13,6 +13,7 @@ const dotenvenc = rewire('../src/index');
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'fs';
 import { execFileSync } from 'child_process';
 import { parse as dotenvParse } from 'dotenv';
+import { createHmac } from 'crypto';
 import { expect } from 'chai';
 import * as sinon from 'sinon';
 import chai from 'chai';
@@ -56,6 +57,8 @@ describe('encryption', () => {
     });
 
     it(`should encrypt default decrypted file ${dotenvenc.DEFAULT_DECRYPTED_FILE} into default encrypted file ${dotenvenc.DEFAULT_ENCRYPTED_FILE} also with semi-readable '.readable' file generated`, async () => {
+        // seed the salt from the fixture so the digests are reproducible
+        writeFileSync(DEFAULT_ENCRYPTED_FILE_READABLE, readFileSync(TEST_SAMPLE_ENCRYPTED_FILE_READABLE));
         await dotenvenc.encrypt({ passwd: ENC_PASSWD, decryptedFile: dotenvenc.DEFAULT_DECRYPTED_FILE, encryptedFile: dotenvenc.DEFAULT_ENCRYPTED_FILE, includeReadable: true });
         expect(await dotenvenc.decrypt({ passwd: ENC_PASSWD, encryptedFile: dotenvenc.DEFAULT_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With \"double quotes\" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
         const encryptedFileReadableContents = readFileSync(DEFAULT_ENCRYPTED_FILE_READABLE, 'utf8');
@@ -69,6 +72,7 @@ describe('encryption', () => {
     });
 
     it(`should encrypt default decrypted file ${dotenvenc.DEFAULT_DECRYPTED_FILE} into custom encrypted file ${CUSTOM_ENCRYPTED_FILE} also with semi-readable '.readable' file generated`, async () => {
+        writeFileSync(CUSTOM_ENCRYPTED_FILE_READABLE, readFileSync(TEST_SAMPLE_ENCRYPTED_FILE_READABLE));
         await dotenvenc.encrypt({ passwd: ENC_PASSWD, encryptedFile: CUSTOM_ENCRYPTED_FILE, includeReadable: true });
         expect(await dotenvenc.decrypt({ passwd: ENC_PASSWD, encryptedFile: CUSTOM_ENCRYPTED_FILE })).to.deep.equal({ ALPHA: 'bar', BETA: 'foo bar', GAMMA: '1234', DELTA: 'With \"double quotes\" inside', DELTA_2: 'With \'single quotes\' inside', EPSILON: 'bla', KAPPA: 'multi\nline\nvalue' });
         const encryptedFileReadableContents = readFileSync(CUSTOM_ENCRYPTED_FILE_READABLE, 'utf8');
@@ -512,5 +516,76 @@ describe('shell export quoting', () => {
         sinon.restore();
         expect(emitted).to.deep.equal([`export GOOD='fine';`, `export ALSO_GOOD='fine2';`]);
         expect(warnings.join('\n')).to.match(/skipping "BAD\.NAME"/);
+    });
+});
+
+describe('readable digest file', () => {
+    const READABLE_DECRYPTED_FILE = './.env.readable-src';
+    const READABLE_ENCRYPTED_FILE = './.env.enc.readable-src';
+    const READABLE_DIGEST_FILE = `${READABLE_ENCRYPTED_FILE}.readable`;
+
+    function writeSecrets(secretValue: string): void {
+        writeFileSync(READABLE_DECRYPTED_FILE, `GAMMA=1234\nSECRET=${secretValue}\n`);
+    }
+
+    async function generate(passwd = ENC_PASSWD) {
+        await dotenvenc.encrypt({ passwd, decryptedFile: READABLE_DECRYPTED_FILE, encryptedFile: READABLE_ENCRYPTED_FILE, includeReadable: true, silent: true });
+        return JSON.parse(readFileSync(READABLE_DIGEST_FILE, 'utf8'));
+    }
+
+    beforeEach(() => {
+        delete process.env.DOTENVENC_PASS;
+        writeSecrets('hunter2');
+    });
+
+    afterEach(() => {
+        removeFile(READABLE_DECRYPTED_FILE);
+        removeFile(READABLE_ENCRYPTED_FILE);
+        removeFile(READABLE_DIGEST_FILE);
+    });
+
+    it('should not key the digest with the raw password', async () => {
+        const readable = await generate();
+        // The old scheme was HMAC-SHA256(key=password, value), which let anyone who could
+        // guess one value confirm password candidates at HMAC speed.
+        const rawPasswordDigest = createHmac('sha256', ENC_PASSWD).update('1234').digest('hex');
+        expect(readable.digests.GAMMA).to.not.equal(rawPasswordDigest);
+    });
+
+    it('should keep digests stable across re-encryption so the file stays diffable', async () => {
+        const first = await generate();
+        const second = await generate();
+        expect(second.salt).to.equal(first.salt);
+        expect(second.digests).to.deep.equal(first.digests);
+    });
+
+    it('should change only the digest of a value that changed', async () => {
+        const before = await generate();
+        writeSecrets('CHANGED');
+        const after = await generate();
+        expect(after.digests.SECRET).to.not.equal(before.digests.SECRET);
+        expect(after.digests.GAMMA).to.equal(before.digests.GAMMA);
+    });
+
+    it('should use a fresh random salt when there is no previous digest file', async () => {
+        const first = await generate();
+        removeFile(READABLE_DIGEST_FILE);
+        const second = await generate();
+        expect(second.salt).to.not.equal(first.salt);
+        expect(second.digests.GAMMA).to.not.equal(first.digests.GAMMA);
+    });
+
+    it('should start a fresh salt if the existing digest file is unusable', async () => {
+        writeFileSync(READABLE_DIGEST_FILE, 'not json at all');
+        const readable = await generate();
+        expect(readable.salt).to.match(/^[0-9a-f]{32}$/);
+        expect(readable.version).to.equal(dotenvenc.CURRENT_FORMAT_VERSION);
+    });
+
+    it('should produce different digests for the same value under different passwords', async () => {
+        const first = await generate();
+        removeFile(READABLE_DIGEST_FILE);
+        const second = await generate('a-completely-different-password');
+        expect(second.digests.GAMMA).to.not.equal(first.digests.GAMMA);
     });
 });
