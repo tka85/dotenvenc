@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.promptPassword = exports.encryptValuesOnly = exports.encrypt = exports.printExport = exports.decrypt = exports.log = exports.DEFAULT_DECRYPTED_FILE = exports.DEFAULT_ENCRYPTED_FILE_READABLE = exports.DEFAULT_ENCRYPTED_FILE = void 0;
+exports.promptPassword = exports.encryptValuesOnly = exports.encrypt = exports.printExport = exports.decrypt = exports.log = exports.CURRENT_FORMAT_VERSION = exports.DEFAULT_DECRYPTED_FILE = exports.DEFAULT_ENCRYPTED_FILE_READABLE = exports.DEFAULT_ENCRYPTED_FILE = void 0;
 const crypto_1 = __importDefault(require("crypto"));
 const fs_1 = require("fs");
 const dotenv_1 = __importDefault(require("dotenv"));
@@ -11,15 +11,25 @@ const prompts_1 = __importDefault(require("prompts"));
 exports.DEFAULT_ENCRYPTED_FILE = './.env.enc';
 exports.DEFAULT_ENCRYPTED_FILE_READABLE = './.env.enc.readable';
 exports.DEFAULT_DECRYPTED_FILE = './.env';
-const ALGOR = 'aes-256-gcm';
-const IV_LENGTH = 12; // recommended nonce size for GCM (NIST SP 800-38D)
-const AUTH_TAG_LENGTH = 16;
-const SALT_LENGTH = 16;
 const KEY_LENGTH = 32; // key used in createCipheriv()/createDecipheriv() buffer needs to be 32 bytes
-// scrypt cost parameters. They are NOT recorded in the encrypted file, so raising
-// them invalidates every file encrypted with the previous values.
-const SCRYPT_PARAMS = { N: 32768, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
 const HEX_RE = /^[0-9a-f]*$/i;
+const VERSION_RE = /^v[0-9]+$/;
+/**
+ * Every encrypted file starts with the version tag of the parameter set it was written
+ * with, so cost parameters can be raised by adding an entry here and pointing
+ * CURRENT_FORMAT_VERSION at it. Old files keep decrypting; only new files use the new
+ * parameters. Never edit a published entry, that would orphan every file using it.
+ */
+const FORMATS = {
+    v2: {
+        algorithm: 'aes-256-gcm',
+        ivLength: 12,
+        authTagLength: 16,
+        saltLength: 16,
+        scrypt: { N: 32768, r: 8, p: 1, maxmem: 64 * 1024 * 1024 },
+    },
+};
+exports.CURRENT_FORMAT_VERSION = 'v2';
 function log({ data, silent }) {
     if (!silent) {
         console.log(data);
@@ -33,11 +43,12 @@ exports.log = log;
  * so work cannot be shared across files or precomputed.
  * @param     {String}    passwd     the user supplied password
  * @param     {Buffer}    saltBuff   the per-file random salt
+ * @param     {Object}    format     the cost parameters recorded in the file's version tag
  * @returns   {Buffer}               the derived 32 byte key
  */
-function deriveKey(passwd, saltBuff) {
+function deriveKey(passwd, saltBuff, format) {
     return new Promise((resolve, reject) => {
-        crypto_1.default.scrypt(passwd, saltBuff, KEY_LENGTH, SCRYPT_PARAMS, (err, derivedKey) => {
+        crypto_1.default.scrypt(passwd, saltBuff, KEY_LENGTH, format.scrypt, (err, derivedKey) => {
             if (err) {
                 reject(err);
             }
@@ -73,15 +84,23 @@ async function decryptFile(encryptedFile, passwd) {
         throw new Error(`Encrypted secrets input file "${encryptedFile}" not found`);
     }
     const fields = (0, fs_1.readFileSync)(encryptedFile).toString().trim().split(':');
-    if (fields.length !== 4) {
-        throw new Error(`Malformed encrypted secrets file "${encryptedFile}": expected "<salt>:<iv>:<authTag>:<ciphertext>" but found ${fields.length} ":"-separated field(s). Files produced by dotenvenc <= 5.x use an older unauthenticated, unsalted format and have to be re-encrypted.`);
+    const version = fields[0];
+    if (!FORMATS[version]) {
+        if (VERSION_RE.test(version)) {
+            throw new Error(`Encrypted secrets file "${encryptedFile}" declares format "${version}", which this version of dotenvenc cannot read. Upgrade dotenvenc.`);
+        }
+        throw new Error(`Unrecognized encrypted secrets file "${encryptedFile}": it does not start with a format version tag. Files produced by dotenvenc <= 5.x used an unauthenticated, unsalted format and have to be re-encrypted with this version.`);
     }
-    const [saltText, ivText, authTagText, encText] = fields;
-    const saltBuff = decodeHexField(saltText, 'salt', encryptedFile, SALT_LENGTH);
-    const ivBuff = decodeHexField(ivText, 'initialization vector', encryptedFile, IV_LENGTH);
-    const authTagBuff = decodeHexField(authTagText, 'authentication tag', encryptedFile, AUTH_TAG_LENGTH);
+    const format = FORMATS[version];
+    if (fields.length !== 5) {
+        throw new Error(`Malformed encrypted secrets file "${encryptedFile}": expected "${version}:<salt>:<iv>:<authTag>:<ciphertext>" but found ${fields.length} ":"-separated field(s)`);
+    }
+    const [, saltText, ivText, authTagText, encText] = fields;
+    const saltBuff = decodeHexField(saltText, 'salt', encryptedFile, format.saltLength);
+    const ivBuff = decodeHexField(ivText, 'initialization vector', encryptedFile, format.ivLength);
+    const authTagBuff = decodeHexField(authTagText, 'authentication tag', encryptedFile, format.authTagLength);
     const encrBuff = decodeHexField(encText, 'ciphertext', encryptedFile);
-    const decipher = crypto_1.default.createDecipheriv(ALGOR, await deriveKey(passwd, saltBuff), ivBuff);
+    const decipher = crypto_1.default.createDecipheriv(format.algorithm, await deriveKey(passwd, saltBuff, format), ivBuff);
     decipher.setAuthTag(authTagBuff);
     let decrBuff;
     try {
@@ -192,12 +211,13 @@ async function encrypt(params) {
     }
     const decryptedEnvContentsBuff = (0, fs_1.readFileSync)(decryptedFilename);
     const parsedEnvContents = dotenv_1.default.parse(decryptedEnvContentsBuff);
-    const saltBuff = crypto_1.default.randomBytes(SALT_LENGTH);
-    const ivBuff = crypto_1.default.randomBytes(IV_LENGTH);
-    const cipher = crypto_1.default.createCipheriv(ALGOR, await deriveKey(passwd, saltBuff), ivBuff);
+    const format = FORMATS[exports.CURRENT_FORMAT_VERSION];
+    const saltBuff = crypto_1.default.randomBytes(format.saltLength);
+    const ivBuff = crypto_1.default.randomBytes(format.ivLength);
+    const cipher = crypto_1.default.createCipheriv(format.algorithm, await deriveKey(passwd, saltBuff, format), ivBuff);
     const encrBuff = Buffer.concat([cipher.update(decryptedEnvContentsBuff), cipher.final()]);
     const authTagBuff = cipher.getAuthTag();
-    (0, fs_1.writeFileSync)(encryptedFilename, [saltBuff.toString('hex'), ivBuff.toString('hex'), authTagBuff.toString('hex'), encrBuff.toString('hex')].join(':'));
+    (0, fs_1.writeFileSync)(encryptedFilename, [exports.CURRENT_FORMAT_VERSION, saltBuff.toString('hex'), ivBuff.toString('hex'), authTagBuff.toString('hex'), encrBuff.toString('hex')].join(':'));
     if (params?.includeReadable === true) {
         encryptValuesOnly(encryptedFilename, passwd, parsedEnvContents);
     }

@@ -3,6 +3,7 @@ import { DotenvParseOutput } from 'dotenv';
 export declare const DEFAULT_ENCRYPTED_FILE = "./.env.enc";
 export declare const DEFAULT_ENCRYPTED_FILE_READABLE = "./.env.enc.readable";
 export declare const DEFAULT_DECRYPTED_FILE = "./.env";
+export declare const CURRENT_FORMAT_VERSION = "v2";
 export type decryptParams = {
     passwd?: string;
     encryptedFile?: string;
