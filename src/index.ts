@@ -12,8 +12,11 @@ export const DEFAULT_DECRYPTED_FILE = './.env';
 const ALGOR = 'aes-256-gcm';
 const IV_LENGTH = 12; // recommended nonce size for GCM (NIST SP 800-38D)
 const AUTH_TAG_LENGTH = 16;
-const MAX_KEY_LENGTH = 32;
-const BUFFER_PADDING = Buffer.alloc(MAX_KEY_LENGTH); // key used in createCipheriv()/createDecipheriv() buffer needs to be 32 bytes
+const SALT_LENGTH = 16;
+const KEY_LENGTH = 32; // key used in createCipheriv()/createDecipheriv() buffer needs to be 32 bytes
+// scrypt cost parameters. They are NOT recorded in the encrypted file, so raising
+// them invalidates every file encrypted with the previous values.
+const SCRYPT_PARAMS = { N: 32768, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
 const HEX_RE = /^[0-9a-f]*$/i;
 
 export type decryptParams = {
@@ -38,10 +41,24 @@ export function log({ data, silent }: { data: string, silent?: boolean }): void 
 }
 
 /**
- * Build the 32 byte key that createCipheriv()/createDecipheriv() require
+ * Stretch the password into the 32 byte key that createCipheriv()/createDecipheriv() require.
+ * scrypt is deliberately slow and memory-hard, so guessing the password costs an
+ * attacker far more than a bare AES call. The salt makes every file's key unique,
+ * so work cannot be shared across files or precomputed.
+ * @param     {String}    passwd     the user supplied password
+ * @param     {Buffer}    saltBuff   the per-file random salt
+ * @returns   {Buffer}               the derived 32 byte key
  */
-function buildKey(passwd: string): Buffer {
-    return Buffer.concat([Buffer.from(passwd), BUFFER_PADDING], MAX_KEY_LENGTH);
+function deriveKey(passwd: string, saltBuff: Buffer): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+        crypto.scrypt(passwd, saltBuff, KEY_LENGTH, SCRYPT_PARAMS, (err, derivedKey) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(derivedKey);
+            }
+        });
+    });
 }
 
 /**
@@ -66,19 +83,20 @@ function decodeHexField(hexText: string, fieldName: string, encryptedFile: strin
  * @param     {String}    passwd          the password the file was encrypted with
  * @returns   {Object}                    the config object as it's parsed by dotenv
  */
-function decryptFile(encryptedFile: string, passwd: string): DotenvParseOutput {
+async function decryptFile(encryptedFile: string, passwd: string): Promise<DotenvParseOutput> {
     if (!existsSync(encryptedFile)) {
         throw new Error(`Encrypted secrets input file "${encryptedFile}" not found`);
     }
     const fields = readFileSync(encryptedFile).toString().trim().split(':');
-    if (fields.length !== 3) {
-        throw new Error(`Malformed encrypted secrets file "${encryptedFile}": expected "<iv>:<authTag>:<ciphertext>" but found ${fields.length} ":"-separated field(s). Files produced by dotenvenc <= 5.x use an older unauthenticated format and have to be re-encrypted.`);
+    if (fields.length !== 4) {
+        throw new Error(`Malformed encrypted secrets file "${encryptedFile}": expected "<salt>:<iv>:<authTag>:<ciphertext>" but found ${fields.length} ":"-separated field(s). Files produced by dotenvenc <= 5.x use an older unauthenticated, unsalted format and have to be re-encrypted.`);
     }
-    const [ivText, authTagText, encText] = fields;
+    const [saltText, ivText, authTagText, encText] = fields;
+    const saltBuff = decodeHexField(saltText, 'salt', encryptedFile, SALT_LENGTH);
     const ivBuff = decodeHexField(ivText, 'initialization vector', encryptedFile, IV_LENGTH);
     const authTagBuff = decodeHexField(authTagText, 'authentication tag', encryptedFile, AUTH_TAG_LENGTH);
     const encrBuff = decodeHexField(encText, 'ciphertext', encryptedFile);
-    const decipher = crypto.createDecipheriv(ALGOR, buildKey(passwd), ivBuff);
+    const decipher = crypto.createDecipheriv(ALGOR, await deriveKey(passwd, saltBuff), ivBuff);
     decipher.setAuthTag(authTagBuff);
     let decrBuff: Buffer;
     try {
@@ -116,7 +134,7 @@ export async function decrypt(params?: decryptParams): Promise<{ [key: string]: 
         }
     }
     const encryptedFile = (params && params.encryptedFile) || DEFAULT_ENCRYPTED_FILE;
-    const parsedEnv = decryptFile(encryptedFile, passwd);
+    const parsedEnv = await decryptFile(encryptedFile, passwd);
     Object.assign(process.env, parsedEnv);
     if (params && params.print) {
         for (const prop in parsedEnv) {
@@ -147,7 +165,7 @@ export async function printExport(params?: decryptParams): Promise<void> {
         }
     }
     const encryptedFile = (params && params.encryptedFile) || DEFAULT_ENCRYPTED_FILE;
-    const parsedEnv = decryptFile(encryptedFile, passwd);
+    const parsedEnv = await decryptFile(encryptedFile, passwd);
     Object.assign(process.env, parsedEnv);
     for (const prop in parsedEnv) {
         if (parsedEnv.hasOwnProperty(prop)) {
@@ -185,11 +203,12 @@ export async function encrypt(params?: encryptParams): Promise<Buffer> {
     }
     const decryptedEnvContentsBuff = readFileSync(decryptedFilename);
     const parsedEnvContents = dotenv.parse(decryptedEnvContentsBuff);
+    const saltBuff = crypto.randomBytes(SALT_LENGTH);
     const ivBuff = crypto.randomBytes(IV_LENGTH);
-    const cipher = crypto.createCipheriv(ALGOR, buildKey(passwd), ivBuff);
+    const cipher = crypto.createCipheriv(ALGOR, await deriveKey(passwd, saltBuff), ivBuff);
     const encrBuff = Buffer.concat([cipher.update(decryptedEnvContentsBuff), cipher.final()]);
     const authTagBuff = cipher.getAuthTag();
-    writeFileSync(encryptedFilename, [ivBuff.toString('hex'), authTagBuff.toString('hex'), encrBuff.toString('hex')].join(':'));
+    writeFileSync(encryptedFilename, [saltBuff.toString('hex'), ivBuff.toString('hex'), authTagBuff.toString('hex'), encrBuff.toString('hex')].join(':'));
     if (params?.includeReadable === true) {
         encryptValuesOnly(encryptedFilename, passwd, parsedEnvContents);
     }

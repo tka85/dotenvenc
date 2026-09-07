@@ -245,47 +245,74 @@ describe('decryption', () => {
         await (0, chai_1.expect)(dotenvenc.decrypt({ passwd: WRONG_ENC_PASSWD })).to.be.rejectedWith(/wrong password, or the file has been tampered with or corrupted/);
     });
     it(`should reject a tampered ciphertext instead of returning altered secrets`, async () => {
-        const [ivText, authTagText, encText] = (0, fs_1.readFileSync)(dotenvenc.DEFAULT_ENCRYPTED_FILE, 'utf8').split(':');
+        const [saltText, ivText, authTagText, encText] = (0, fs_1.readFileSync)(dotenvenc.DEFAULT_ENCRYPTED_FILE, 'utf8').split(':');
         const ciphertext = Buffer.from(encText, 'hex');
         // Flipping ciphertext bits deterministically rewrites the plaintext under an
         // unauthenticated stream cipher; GCM's auth tag has to catch it.
         ciphertext[0] ^= 0xff;
-        (0, fs_1.writeFileSync)(dotenvenc.DEFAULT_ENCRYPTED_FILE, [ivText, authTagText, ciphertext.toString('hex')].join(':'));
+        (0, fs_1.writeFileSync)(dotenvenc.DEFAULT_ENCRYPTED_FILE, [saltText, ivText, authTagText, ciphertext.toString('hex')].join(':'));
         await (0, chai_1.expect)(dotenvenc.decrypt({ passwd: ENC_PASSWD })).to.be.rejectedWith(/tampered with or corrupted/);
     });
     it(`should reject a tampered authentication tag`, async () => {
-        const [ivText, authTagText, encText] = (0, fs_1.readFileSync)(dotenvenc.DEFAULT_ENCRYPTED_FILE, 'utf8').split(':');
+        const [saltText, ivText, authTagText, encText] = (0, fs_1.readFileSync)(dotenvenc.DEFAULT_ENCRYPTED_FILE, 'utf8').split(':');
         const authTag = Buffer.from(authTagText, 'hex');
         authTag[0] ^= 0xff;
-        (0, fs_1.writeFileSync)(dotenvenc.DEFAULT_ENCRYPTED_FILE, [ivText, authTag.toString('hex'), encText].join(':'));
+        (0, fs_1.writeFileSync)(dotenvenc.DEFAULT_ENCRYPTED_FILE, [saltText, ivText, authTag.toString('hex'), encText].join(':'));
         await (0, chai_1.expect)(dotenvenc.decrypt({ passwd: ENC_PASSWD })).to.be.rejectedWith(/tampered with or corrupted/);
     });
     it(`should reject a tampered initialization vector`, async () => {
-        const [ivText, authTagText, encText] = (0, fs_1.readFileSync)(dotenvenc.DEFAULT_ENCRYPTED_FILE, 'utf8').split(':');
+        const [saltText, ivText, authTagText, encText] = (0, fs_1.readFileSync)(dotenvenc.DEFAULT_ENCRYPTED_FILE, 'utf8').split(':');
         const iv = Buffer.from(ivText, 'hex');
         iv[0] ^= 0xff;
-        (0, fs_1.writeFileSync)(dotenvenc.DEFAULT_ENCRYPTED_FILE, [iv.toString('hex'), authTagText, encText].join(':'));
+        (0, fs_1.writeFileSync)(dotenvenc.DEFAULT_ENCRYPTED_FILE, [saltText, iv.toString('hex'), authTagText, encText].join(':'));
         await (0, chai_1.expect)(dotenvenc.decrypt({ passwd: ENC_PASSWD })).to.be.rejectedWith(/tampered with or corrupted/);
     });
     it(`should reject a tampered file via printExport() too`, async () => {
-        const [ivText, authTagText, encText] = (0, fs_1.readFileSync)(dotenvenc.DEFAULT_ENCRYPTED_FILE, 'utf8').split(':');
+        const [saltText, ivText, authTagText, encText] = (0, fs_1.readFileSync)(dotenvenc.DEFAULT_ENCRYPTED_FILE, 'utf8').split(':');
         const ciphertext = Buffer.from(encText, 'hex');
         ciphertext[0] ^= 0xff;
-        (0, fs_1.writeFileSync)(dotenvenc.DEFAULT_ENCRYPTED_FILE, [ivText, authTagText, ciphertext.toString('hex')].join(':'));
+        (0, fs_1.writeFileSync)(dotenvenc.DEFAULT_ENCRYPTED_FILE, [saltText, ivText, authTagText, ciphertext.toString('hex')].join(':'));
         await (0, chai_1.expect)(dotenvenc.printExport({ passwd: ENC_PASSWD })).to.be.rejectedWith(/tampered with or corrupted/);
     });
     it(`should reject the legacy unauthenticated dotenvenc <= 5.x file format with a clear error`, async () => {
         // legacy format was "<iv>:<ciphertext>" with no auth tag
         (0, fs_1.writeFileSync)(dotenvenc.DEFAULT_ENCRYPTED_FILE, `${'ab'.repeat(16)}:${'cd'.repeat(64)}`);
-        await (0, chai_1.expect)(dotenvenc.decrypt({ passwd: ENC_PASSWD })).to.be.rejectedWith(/older unauthenticated format/);
+        await (0, chai_1.expect)(dotenvenc.decrypt({ passwd: ENC_PASSWD })).to.be.rejectedWith(/older unauthenticated, unsalted format/);
     });
     it(`should reject a non-hex encrypted file with a clear error`, async () => {
-        (0, fs_1.writeFileSync)(dotenvenc.DEFAULT_ENCRYPTED_FILE, 'zzzz:cdcd:abab');
-        await (0, chai_1.expect)(dotenvenc.decrypt({ passwd: ENC_PASSWD })).to.be.rejectedWith(/initialization vector is not valid hex/);
+        (0, fs_1.writeFileSync)(dotenvenc.DEFAULT_ENCRYPTED_FILE, 'zzzz:abab:cdcd:efef');
+        await (0, chai_1.expect)(dotenvenc.decrypt({ passwd: ENC_PASSWD })).to.be.rejectedWith(/salt is not valid hex/);
     });
     it(`should reject an encrypted file whose IV is the wrong length`, async () => {
-        (0, fs_1.writeFileSync)(dotenvenc.DEFAULT_ENCRYPTED_FILE, `${'ab'.repeat(8)}:${'cd'.repeat(16)}:${'ef'.repeat(32)}`);
+        (0, fs_1.writeFileSync)(dotenvenc.DEFAULT_ENCRYPTED_FILE, `${'ab'.repeat(16)}:${'cd'.repeat(8)}:${'ef'.repeat(16)}:${'01'.repeat(32)}`);
         await (0, chai_1.expect)(dotenvenc.decrypt({ passwd: ENC_PASSWD })).to.be.rejectedWith(/initialization vector must be 12 bytes but is 8/);
+    });
+    it(`should reject a tampered salt`, async () => {
+        const [saltText, ivText, authTagText, encText] = (0, fs_1.readFileSync)(dotenvenc.DEFAULT_ENCRYPTED_FILE, 'utf8').split(':');
+        const salt = Buffer.from(saltText, 'hex');
+        salt[0] ^= 0xff;
+        (0, fs_1.writeFileSync)(dotenvenc.DEFAULT_ENCRYPTED_FILE, [salt.toString('hex'), ivText, authTagText, encText].join(':'));
+        await (0, chai_1.expect)(dotenvenc.decrypt({ passwd: ENC_PASSWD })).to.be.rejectedWith(/tampered with or corrupted/);
+    });
+    it(`should use the whole password rather than truncating it to 32 bytes`, async () => {
+        // These two passwords share their first 32 bytes. Zero-padding the raw password
+        // to a 32 byte key made them interchangeable; scrypt hashes the whole string.
+        const longPasswd = `${'A'.repeat(32)}SECRET-SUFFIX-XYZ`;
+        const sharedPrefixPasswd = `${'A'.repeat(32)}totally-different`;
+        await dotenvenc.encrypt({ passwd: longPasswd, decryptedFile: TEST_SAMPLE_DECRYPTED_FILE, encryptedFile: CUSTOM_ENCRYPTED_FILE, silent: true });
+        (0, chai_1.expect)(await dotenvenc.decrypt({ passwd: longPasswd, encryptedFile: CUSTOM_ENCRYPTED_FILE })).to.have.property('ALPHA', 'bar');
+        await (0, chai_1.expect)(dotenvenc.decrypt({ passwd: sharedPrefixPasswd, encryptedFile: CUSTOM_ENCRYPTED_FILE })).to.be.rejectedWith(/wrong password/);
+        await (0, chai_1.expect)(dotenvenc.decrypt({ passwd: 'A'.repeat(32), encryptedFile: CUSTOM_ENCRYPTED_FILE })).to.be.rejectedWith(/wrong password/);
+    });
+    it(`should derive a fresh random salt on every encryption`, async () => {
+        await dotenvenc.encrypt({ passwd: ENC_PASSWD, decryptedFile: TEST_SAMPLE_DECRYPTED_FILE, encryptedFile: CUSTOM_ENCRYPTED_FILE, silent: true });
+        const first = (0, fs_1.readFileSync)(CUSTOM_ENCRYPTED_FILE, 'utf8').split(':');
+        await dotenvenc.encrypt({ passwd: ENC_PASSWD, decryptedFile: TEST_SAMPLE_DECRYPTED_FILE, encryptedFile: CUSTOM_ENCRYPTED_FILE, silent: true });
+        const second = (0, fs_1.readFileSync)(CUSTOM_ENCRYPTED_FILE, 'utf8').split(':');
+        // same password, same plaintext => different salt, different key, different ciphertext
+        (0, chai_1.expect)(first[0]).to.not.equal(second[0]);
+        (0, chai_1.expect)(first[3]).to.not.equal(second[3]);
+        (0, chai_1.expect)(await dotenvenc.decrypt({ passwd: ENC_PASSWD, encryptedFile: CUSTOM_ENCRYPTED_FILE })).to.have.property('ALPHA', 'bar');
     });
     it(`should throw Error if the default encrypted secrets file does not exist`, async () => {
         removeFile(dotenvenc.DEFAULT_ENCRYPTED_FILE);
