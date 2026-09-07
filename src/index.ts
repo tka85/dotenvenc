@@ -95,6 +95,22 @@ function decodeHexField(hexText: string, fieldName: string, encryptedFile: strin
 }
 
 /**
+ * Quote a value for POSIX sh so that `eval` treats it as literal text.
+ * Single quotes are the only shell quoting in which no character is special, so
+ * the value only has to have its own single quotes broken out: ' -> '\''.
+ * Double quotes are not safe here, $(...), `...`, $VAR and \ all stay live inside them.
+ */
+function shellQuote(value: string): string {
+    return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+/**
+ * A name that `export` will accept. dotenv keys are [\w.-]+, so they can contain
+ * dots and dashes or start with a digit, none of which are valid shell identifiers.
+ */
+const SHELL_IDENTIFIER_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+/**
  * Read, authenticate and decrypt an encrypted secrets file.
  * Throws if the file is missing or malformed, or if the password is wrong or the contents were tampered with.
  * @param     {String}    encryptedFile   the full path of the encrypted file
@@ -195,7 +211,13 @@ export async function printExport(params?: decryptParams): Promise<void> {
     Object.assign(process.env, parsedEnv);
     for (const prop in parsedEnv) {
         if (parsedEnv.hasOwnProperty(prop)) {
-            log({ data: `export ${prop}="${parsedEnv[prop].replace(/"/g, '\\"')}";` });
+            if (!SHELL_IDENTIFIER_RE.test(prop)) {
+                // Warn rather than emit; `export A.B=...` is a syntax error that would
+                // abort the caller's `eval` and take every following variable with it.
+                console.error(`# WARNING: skipping "${prop}", it is not a valid shell variable name`);
+                continue;
+            }
+            log({ data: `export ${prop}=${shellQuote(parsedEnv[prop])};` });
         }
     }
 }

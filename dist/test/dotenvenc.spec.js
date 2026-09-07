@@ -358,15 +358,15 @@ value`);
         process.env.DOTENVENC_PASS = ENC_PASSWD;
         await dotenvenc.printExport();
         (0, chai_1.expect)(consoleLogSpy.callCount).to.equal(7);
-        (0, chai_1.expect)(consoleLogSpy.getCall(0).args[0]).to.equal('export ALPHA="bar";');
-        (0, chai_1.expect)(consoleLogSpy.getCall(1).args[0]).to.equal('export BETA="foo bar";');
-        (0, chai_1.expect)(consoleLogSpy.getCall(2).args[0]).to.equal('export GAMMA="1234";');
-        (0, chai_1.expect)(consoleLogSpy.getCall(3).args[0]).to.equal('export DELTA="With \\"double quotes\\" inside";');
-        (0, chai_1.expect)(consoleLogSpy.getCall(4).args[0]).to.equal('export DELTA_2="With \'single quotes\' inside";');
-        (0, chai_1.expect)(consoleLogSpy.getCall(5).args[0]).to.equal('export EPSILON="bla";');
-        (0, chai_1.expect)(consoleLogSpy.getCall(6).args[0]).to.equal(`export KAPPA="multi
+        (0, chai_1.expect)(consoleLogSpy.getCall(0).args[0]).to.equal(`export ALPHA='bar';`);
+        (0, chai_1.expect)(consoleLogSpy.getCall(1).args[0]).to.equal(`export BETA='foo bar';`);
+        (0, chai_1.expect)(consoleLogSpy.getCall(2).args[0]).to.equal(`export GAMMA='1234';`);
+        (0, chai_1.expect)(consoleLogSpy.getCall(3).args[0]).to.equal(`export DELTA='With "double quotes" inside';`);
+        (0, chai_1.expect)(consoleLogSpy.getCall(4).args[0]).to.equal(`export DELTA_2='With '\\''single quotes'\\'' inside';`);
+        (0, chai_1.expect)(consoleLogSpy.getCall(5).args[0]).to.equal(`export EPSILON='bla';`);
+        (0, chai_1.expect)(consoleLogSpy.getCall(6).args[0]).to.equal(`export KAPPA='multi
 line
-value";`);
+value';`);
     });
 });
 describe('cli', () => {
@@ -403,6 +403,69 @@ describe('cli', () => {
         const output = runCli(['-d', '-i', CLI_ENCRYPTED_FILE, '--silent']);
         (0, chai_1.expect)(output).to.contain('ALPHA=bar');
         (0, chai_1.expect)(output).to.contain('GAMMA=1234');
+    });
+});
+describe('shell export quoting', () => {
+    const HOSTILE_DECRYPTED_FILE = './.env.hostile';
+    const HOSTILE_ENCRYPTED_FILE = './.env.enc.hostile';
+    // Values a shell would otherwise interpret: command substitution, quotes,
+    // parameter expansion and a command separator.
+    const HOSTILE_ENV = [
+        'INNOCENT=hello',
+        'CMD_SUBST=$(id -un)',
+        'BACKTICKS=$(hostname)',
+        `SINGLE=it's got a quote`,
+        'DQUOTE=say "hi" now',
+        'EXPANSION=$HOME and ${PATH}',
+        'SEPARATOR=a; echo pwned',
+        'TRAILING_BACKSLASH=ends with \\',
+    ].join('\n');
+    beforeEach(() => {
+        delete process.env.DOTENVENC_PASS;
+        (0, fs_1.writeFileSync)(HOSTILE_DECRYPTED_FILE, `${HOSTILE_ENV}\n`);
+    });
+    afterEach(() => {
+        sinon.restore();
+        removeFile(HOSTILE_DECRYPTED_FILE);
+        removeFile(HOSTILE_ENCRYPTED_FILE);
+    });
+    it('should emit values that a real shell `eval` leaves byte for byte intact', async () => {
+        await dotenvenc.encrypt({ passwd: ENC_PASSWD, decryptedFile: HOSTILE_DECRYPTED_FILE, encryptedFile: HOSTILE_ENCRYPTED_FILE, silent: true });
+        const expected = await dotenvenc.decrypt({ passwd: ENC_PASSWD, encryptedFile: HOSTILE_ENCRYPTED_FILE });
+        const consoleLogSpy = sinon.spy(console, 'log');
+        await dotenvenc.printExport({ passwd: ENC_PASSWD, encryptedFile: HOSTILE_ENCRYPTED_FILE });
+        const script = consoleLogSpy.getCalls().map((call) => call.args[0]).join('\n');
+        sinon.restore();
+        // Round-trip the emitted script through bash exactly as the README's `eval` does,
+        // then print each value back with a NUL separator so nothing can be misread.
+        const names = Object.keys(expected);
+        const readBack = (0, child_process_1.execFileSync)('bash', ['-c', `${script}\nfor v in ${names.join(' ')}; do printf '%s\\0' "\${!v}"; done`], { encoding: 'utf8' });
+        const actual = readBack.split('\0').slice(0, names.length);
+        names.forEach((name, i) => {
+            (0, chai_1.expect)(actual[i], `value of ${name} survived eval`).to.equal(expected[name]);
+        });
+    });
+    it('should not execute command substitution present in a secret', async () => {
+        await dotenvenc.encrypt({ passwd: ENC_PASSWD, decryptedFile: HOSTILE_DECRYPTED_FILE, encryptedFile: HOSTILE_ENCRYPTED_FILE, silent: true });
+        const consoleLogSpy = sinon.spy(console, 'log');
+        await dotenvenc.printExport({ passwd: ENC_PASSWD, encryptedFile: HOSTILE_ENCRYPTED_FILE });
+        const script = consoleLogSpy.getCalls().map((call) => call.args[0]).join('\n');
+        sinon.restore();
+        const out = (0, child_process_1.execFileSync)('bash', ['-c', `${script}\nprintf '%s' "$CMD_SUBST"`], { encoding: 'utf8' });
+        (0, chai_1.expect)(out).to.equal('$(id -un)');
+        (0, chai_1.expect)(out).to.not.equal((0, child_process_1.execFileSync)('id', ['-un'], { encoding: 'utf8' }).trim());
+    });
+    it('should skip names that are not valid shell identifiers instead of breaking the eval', async () => {
+        (0, fs_1.writeFileSync)(HOSTILE_DECRYPTED_FILE, 'GOOD=fine\nBAD.NAME=nope\nALSO_GOOD=fine2\n');
+        await dotenvenc.encrypt({ passwd: ENC_PASSWD, decryptedFile: HOSTILE_DECRYPTED_FILE, encryptedFile: HOSTILE_ENCRYPTED_FILE, silent: true });
+        const consoleLogSpy = sinon.spy(console, 'log');
+        const consoleErrorSpy = sinon.spy(console, 'error');
+        await dotenvenc.printExport({ passwd: ENC_PASSWD, encryptedFile: HOSTILE_ENCRYPTED_FILE });
+        const emitted = consoleLogSpy.getCalls().map((call) => call.args[0]);
+        const warnings = consoleErrorSpy.getCalls().map((call) => call.args[0]);
+        sinon.restore();
+        (0, chai_1.expect)(emitted).to.deep.equal([`export GOOD='fine';`, `export ALSO_GOOD='fine2';`]);
+        (0, chai_1.expect)(warnings.join('\n')).to.match(/skipping "BAD\.NAME"/);
     });
 });
 //# sourceMappingURL=dotenvenc.spec.js.map
